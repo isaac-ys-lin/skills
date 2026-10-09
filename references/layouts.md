@@ -24,15 +24,15 @@
 
 | 版型 | 什麼時候用 | 版面欄位與實作補充 | 容量與限制 |
 | --- | --- | --- | --- |
-| 封面 `cover` | 建立主張、對象與範圍。 | `kicker`、`claim`、`note`、`sources`；日期讀根層 `date`。 | 深藍底；主標可用 `\n` 分兩行，副標以一行為宜。 |
+| 封面 `cover` | 建立主張、對象與範圍。 | `kicker`、`claim`、`note`、`sources`；日期讀根層 `date`。 | 深色底；主標可用 `\n` 分兩行，副標以一行為宜。 |
 | 主管摘要 `summary` | 先交代建議與支撐決策的關鍵數字。 | `kicker`、`claim`、`visual.lead`、選用 `visual.body`、`visual.items`、`sources`。 | 左欄一行粗體建議與二至三行說明；右欄直排二至三個數字，每項可加一行 `note`。超出容量會警告。 |
-| 章節 `section` | 故事進入新的問題，讓觀眾知道位置。 | `kicker`、`claim`、`note`、`sources`；尺標依全份簡報的章節名產生。 | 淡藍底；目前章節以 `kicker` 對應尺標，不把章節清單放進 `visual`。 |
+| 章節 `section` | 故事進入新的問題，讓觀眾知道位置。 | `kicker`、`claim`、`note`、`sources`；尺標依全份簡報的章節名產生。 | 淡色底；目前章節以 `kicker` 對應尺標，不把章節清單放進 `visual`。 |
 | 一句話 `statement` | 需要觀眾先記住一個判斷，或沒有數字可畫。 | `kicker`、`claim`、`note`、`sources`；選用 `focus` 指定 `claim` 內一段原文。 | 只強調第一個相符片段；找不到 `focus` 會警告。補充要短。 |
 | 證據 `evidence` | 用一張圖或表支持標題。 | `kicker`、`claim`、`visual`、`note`、`sources`；選用 `metric: {label?, value, unit?}`。 | `visual` 是 [圖表 spec](charts.md)。有 `note` 或 `metric` 時保留右側結論欄；兩者都省略時圖表放寬。一頁一張主圖。 |
 | 數字 `numbers` | 並列少數關鍵指標及增減。 | `kicker`、`claim`、`visual.items`、`sources`。 | 由標題下方的內容起點向下排，建議二至四格；超出範圍會警告。過長數字可能縮字並警告，仍須看圖。 |
 | 比較 `compare` | 在同一組條件下比較方案並提出建議。 | `kicker`、`claim`、`visual.rows`、`visual.options`、`sources`。 | 建議二至三個方案；方案數量與文字密度以預覽判斷。每個方案的 `values` 與列名逐格對應。 |
 | 步驟 `steps` | 已知月份起迄的分階段時程。 | `kicker`、`claim`、`visual.start`、`visual.end`、`visual.phases`、`sources`。 | 日期必須是 `YYYY-MM`，各階段落在整體時程內；適合少數階段，列高不足會警告。 |
-| 收尾 `close` | 明確交代接下來做什麼、誰負責、何時完成。 | `kicker`、`claim`、`visual.rows`、`sources`。 | 與封面同色的深藍底，任務粗體白字、負責人與期限靠右淡色，列間細線；全欄未提供的負責人或期限會省略。文字放不下會警告。 |
+| 收尾 `close` | 明確交代接下來做什麼、誰負責、何時完成。 | `kicker`、`claim`、`visual.rows`、`sources`。 | 與封面同色的深色底，任務粗體淺色字、負責人與期限靠右淡色，列間細線；全欄未提供的負責人或期限會省略。文字放不下會警告。 |
 
 所有版型都接受 `notes`。數字格、方案、階段、行動列中的全空物件會整格略去；每個主視覺仍需至少一筆有內容的資料。表中的二至四格、二至三方案是視覺容量建議，警告用來提示看圖，不是要求把真實內容硬湊成指定數量。
 

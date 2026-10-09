@@ -10,7 +10,7 @@
 - `unit`、`period`、`source`：獨立 SVG 的來源列。放進簡報後，每頁來源列改讀頁面的 `sources`，請另填 `sources.source`、`sources.unit`、`sources.period`。
 - 數值用 JSON 數字，缺值用 `null`，0 照常保留。缺值會自動列入證據頁來源列；文字稿沒有可畫數字時，選非圖表版型。
 - 原生：`rank`、`line`、`slope`、`share`、`scatter` 是 PowerPoint 圖表，`table` 是 PowerPoint 表格。其餘為 SVG，簡報內附 PNG 後備。原生圖可加 `native: false` 改用 SVG；極小非零值若會顯示成 0，也會自動改 SVG 並警告。
-- 同類別整份簡報維持同色。`share` 超過四色的類別會合併為「其他」；無 `focus` 的多系列 `line` 超出四色者改用灰色，但不合併資料。看警告與預覽再決定是否調整。
+- 同類別整份簡報維持同色。`share` 超過可用類別色數的類別會合併為「其他」；無 `focus` 的多系列 `line` 超出可用色數者改用灰色，但不合併資料。可用色數取 `categoryRules.maxCategorical` 與 `categorical` 長度的較小值；預設為四色。看警告與預覽再決定是否調整。
 
 獨立圖表預覽指令（從 skill 根目錄執行）：
 
@@ -57,7 +57,7 @@ node scripts/png.js out/rank.svg out/rank.png
 
 用於多個對象各自的走勢比較；所有小圖共用縱軸，避免各自放大造成錯覺。
 
-- 欄位：`x`、`series` 與 `line` 相同；各格都使用重點藍，`focus` 不生效。`null` 保留類別位置並斷線；整條皆缺值仍保留該小圖的格位、系列名與座標格線，不畫資料線或末值。
+- 欄位：`x`、`series` 與 `line` 相同；各格都使用重點色，`focus` 不生效。`null` 保留類別位置並斷線；整條皆缺值仍保留該小圖的格位、系列名與座標格線，不畫資料線或末值。
 - 輸出：SVG。
 - 常見錯誤：各系列時間點不同；格數過多。超過六格會警告，應看圖決定分頁或精簡。
 - 最小範例：`{"kind":"multiples","x":["上期","本期"],"series":[{"name":"甲","values":[8,12]},{"name":"乙","values":[10,9]}]}`。完整檔：[examples/multiples.json](../examples/multiples.json)。
@@ -79,7 +79,7 @@ node scripts/png.js out/rank.svg out/rank.png
 
 - 欄位：`categories: [類別名稱, ...]`、`rows: [{label, values: [...]}]`；每列長度與 `categories` 相同，數字非負，允許 `null`。任一類別缺值就略去整列，避免把剩餘類別誤算成完整的 100%；SVG 與原生圖相同。
 - 輸出：原生圖表；原生「其他」為灰色實底，SVG 為斜線。
-- 常見錯誤：用比例長條推論總量；某類缺值時仍把其餘類當成 100%。有缺值的整列會略去並列明來源缺口；全 0 的列留空並警告。類別超過四色會合併，不能靠新增顏色保留所有類別。
+- 常見錯誤：用比例長條推論總量；某類缺值時仍把其餘類當成 100%。有缺值的整列會略去並列明來源缺口；全 0 的列留空並警告。類別超過設計層的可用色數會合併，不能靠新增顏色保留所有類別。
 - 最小範例：`{"kind":"share","categories":["甲","乙"],"rows":[{"label":"本期","values":[30,70]}]}`。完整檔：[examples/share.json](../examples/share.json)。
 
 ### 瀑布 `bridge`
@@ -117,7 +117,7 @@ node scripts/png.js out/rank.svg out/rank.png
 
 - 欄位：`rowLabels`、`colLabels`、`values`（列數 × 欄數的長方形陣列）；選用 `legendUnit`、`digits`。有效值須非負，缺值用 `null`；該格保留空白，不畫色塊或數字，列名與欄名仍保留，整列皆缺值也不刪列。
 - 輸出：SVG。
-- 常見錯誤：列欄轉置；填負值；將空值塗成最低階。色階固定從 0 到最大值等寬分五段，不能把它解讀為五分位或跨圖固定門檻。
+- 常見錯誤：列欄轉置；填負值；將空值塗成最低階。色階從 0 到最大值等寬分箱，階數取 `heatmap.steps` 與 `ordered` 長度的較小值（預設五階），不能把它解讀為分位數或跨圖固定門檻。
 - 最小範例：`{"kind":"heat","rowLabels":["甲","乙"],"colLabels":["早","晚"],"values":[[2,5],[0,null]]}`。完整檔：[examples/heat.json](../examples/heat.json)。
 
 ## 兩個指標有何關係、該先做哪一項？

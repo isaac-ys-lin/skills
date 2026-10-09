@@ -7,7 +7,7 @@ import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 
 export function preview(deck, outDir) {
-  const box = join(homedir(), 'Library/Containers/com.microsoft.Powerpoint/Data/Documents/blueprint-preview');
+  const box = join(homedir(), 'Library/Containers/com.microsoft.Powerpoint/Data/Documents/clayprint-preview');
   mkdirSync(box, { recursive: true });
   mkdirSync(outDir, { recursive: true });
   const name = basename(deck, '.pptx');

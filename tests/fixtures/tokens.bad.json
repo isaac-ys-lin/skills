@@ -1,0 +1,336 @@
+{
+  "name": "bad",
+  "version": "1.1",
+  "slide": {
+    "widthIn": 13.333,
+    "heightIn": 7.5,
+    "widthPx": 1920,
+    "heightPx": 1080,
+    "pxPerIn": 144,
+    "pxPerPt": 2
+  },
+  "margin": {
+    "x": 100,
+    "top": 72,
+    "bottom": 52,
+    "titleGap": 28,
+    "contentGap": 56,
+    "sourceGap": 48
+  },
+  "chartArea": {
+    "evidence": {
+      "width": 1144,
+      "height": 669
+    },
+    "evidenceTwoLineTitle": {
+      "width": 1144,
+      "height": 599
+    },
+    "evidenceNoNote": {
+      "width": 1720,
+      "height": 669
+    }
+  },
+  "font": {
+    "latin": [
+      "Helvetica Neue",
+      "Segoe UI",
+      "Arial"
+    ],
+    "cjk": [
+      "PingFang TC",
+      "Microsoft JhengHei"
+    ],
+    "numerals": "tabular",
+    "italic": false
+  },
+  "type": {
+    "display": {
+      "px": 104,
+      "weight": 600
+    },
+    "statement": {
+      "px": 88,
+      "weight": 600,
+      "color": "#141413"
+    },
+    "number": {
+      "px": 120,
+      "weight": 300,
+      "color": "#141413"
+    },
+    "conclusionNumber": {
+      "px": 88,
+      "weight": 300,
+      "color": "#C2553A"
+    },
+    "title": {
+      "px": 56,
+      "weight": 600,
+      "color": "#141413"
+    },
+    "sub": {
+      "px": 36,
+      "weight": 400
+    },
+    "body": {
+      "px": 32,
+      "weight": 400,
+      "color": "#141413"
+    },
+    "chartTitle": {
+      "px": 32,
+      "weight": 600,
+      "color": "#141413"
+    },
+    "tableBody": {
+      "px": 32,
+      "weight": 400,
+      "emphasisWeight": 600,
+      "color": "#141413"
+    },
+    "tableHeader": {
+      "px": 24,
+      "weight": 400,
+      "color": "#5E5D59"
+    },
+    "label": {
+      "px": 24,
+      "weight": 400,
+      "color": "#5E5D59"
+    },
+    "minimum": 24
+  },
+  "stroke": {
+    "grid": 1,
+    "axis": 1,
+    "focusRule": 4,
+    "focusLine": 3,
+    "otherLine": 1.5,
+    "tickLong": 14,
+    "tickShort": 7,
+    "axisTick": 8
+  },
+  "sourceRow": {
+    "maxLines": 2,
+    "overflow": "warn",
+    "shrinkText": false,
+    "fields": [
+      "source",
+      "unit",
+      "period",
+      "missing"
+    ]
+  },
+  "color": {
+    "text": "#141413",
+    "textSecondary": "#5E5D59",
+    "grid": "#E8E6DC",
+    "gray": "#8F8D86",
+    "title": "#141413",
+    "dark": "#141413",
+    "onDark": [
+      "#FAF9F5",
+      "#B0AEA5"
+    ],
+    "tint": "#F5E6DE",
+    "focus": "#8F8D86",
+    "ordered": [
+      "#E39A7C",
+      "#D5754F",
+      "#C2553A",
+      "#A2432C",
+      "#7F2F1B"
+    ],
+    "categorical": [
+      "#C2553A",
+      "#3F78B5",
+      "#3F78B5",
+      "#8460B5"
+    ],
+    "other": "#B3B1A8",
+    "better": "#4F6B28",
+    "worse": "#9A3A26",
+    "unchanged": "#5E5D59"
+  },
+  "textOnFill": {
+    "#141413": [
+      "#E39A7C",
+      "#D5754F",
+      "#B3B1A8",
+      "#F5E6DE"
+    ],
+    "#FFFFFF": [
+      "#C2553A",
+      "#3F78B5",
+      "#5A7A2E",
+      "#8460B5",
+      "#A2432C",
+      "#7F2F1B"
+    ],
+    "#FAF9F5": [
+      "#141413"
+    ],
+    "#8F8D86": [
+      "#8F8D86"
+    ]
+  },
+  "categoryRules": {
+    "stableColorPerCategory": true,
+    "otherByName": "其他",
+    "maxCategorical": 4
+  },
+  "delta": {
+    "signs": {
+      "increase": "＋",
+      "decrease": "−",
+      "unchanged": "±0"
+    },
+    "better": {
+      "values": [
+        "higher",
+        "lower"
+      ],
+      "default": "higher"
+    },
+    "colorAppliesTo": "deltaLabelOnly",
+    "noPrevious": "omit",
+    "previousZero": "absoluteOnly",
+    "percentOfPercent": "個百分點"
+  },
+  "dataDisplay": {
+    "zero": "plotAndLabel",
+    "missing": {
+      "plot": false,
+      "sourceField": "未提供：{item}"
+    },
+    "roundsToZero": {
+      "positive": "<{precision}",
+      "negative": ">−{precision}"
+    },
+    "labelsFormatOnly": true
+  },
+  "heatmap": {
+    "steps": 5,
+    "binning": "equalWidth",
+    "from": 0,
+    "to": "max",
+    "legendShowsRanges": true
+  },
+  "fill": {
+    "estimate": {
+      "svg": {
+        "pattern": "hatch",
+        "angle": 45,
+        "stroke": "#C2553A",
+        "width": 1.5,
+        "spacing": 7,
+        "outline": "#C2553A"
+      },
+      "native": {
+        "color": "#E39A7C",
+        "labelSuffix": "預估"
+      }
+    },
+    "other": {
+      "svg": {
+        "pattern": "hatch",
+        "angle": 45,
+        "stroke": "#B3B1A8",
+        "width": 2,
+        "spacing": 7
+      },
+      "native": {
+        "color": "#B3B1A8"
+      }
+    }
+  },
+  "layoutFields": {
+    "fields": [
+      "kicker",
+      "claim",
+      "note",
+      "visual",
+      "sources"
+    ],
+    "emptyField": "omitCell",
+    "layouts": {
+      "cover": [
+        "kicker",
+        "claim",
+        "note",
+        "sources"
+      ],
+      "summary": [
+        "kicker",
+        "claim",
+        "visual",
+        "sources"
+      ],
+      "section": [
+        "kicker",
+        "claim",
+        "note",
+        "sources"
+      ],
+      "statement": [
+        "kicker",
+        "claim",
+        "note",
+        "sources"
+      ],
+      "evidence": [
+        "kicker",
+        "claim",
+        "visual",
+        "note",
+        "sources"
+      ],
+      "numbers": [
+        "kicker",
+        "claim",
+        "visual",
+        "sources"
+      ],
+      "compare": [
+        "kicker",
+        "claim",
+        "visual",
+        "sources"
+      ],
+      "steps": [
+        "kicker",
+        "claim",
+        "visual",
+        "sources"
+      ],
+      "close": [
+        "kicker",
+        "claim",
+        "visual",
+        "sources"
+      ]
+    }
+  },
+  "export": {
+    "tool": "pptxgenjs",
+    "native": [
+      "rankingBar",
+      "line",
+      "slope",
+      "stacked100",
+      "scatter",
+      "table"
+    ],
+    "svgWithPngFallback": [
+      "smallMultiples",
+      "waterfall",
+      "histogram",
+      "dotPlot",
+      "matrix2x2",
+      "dumbbell",
+      "funnel",
+      "heatmap"
+    ]
+  }
+}

@@ -38,7 +38,7 @@ function rect(x, y, w, h, { fill, stroke } = {}) {
 }
 
 function circle(cx, cy, r, { fill, stroke } = {}) {
-  return `<circle cx="${n(cx)}" cy="${n(cy)}" r="${r}" fill="${fill ?? '#FFFFFF'}"${stroke ? ` stroke="${stroke}" stroke-width="1.5"` : ''}/>`;
+  return `<circle cx="${n(cx)}" cy="${n(cy)}" r="${r}" fill="${fill ?? C.onDark[0]}"${stroke ? ` stroke="${stroke}" stroke-width="1.5"` : ''}/>`;
 }
 
 function path(points, { stroke, width }) {
@@ -49,7 +49,7 @@ function path(points, { stroke, width }) {
 // 45° hatch ("/") drawn as segments already clipped to the box, instead of an SVG <pattern>.
 function hatch(x, y, w, h, kind) {
   const f = T.fill[kind].svg;
-  const parts = [rect(x, y, w, h, { fill: '#FFFFFF', stroke: f.outline })];
+  const parts = [rect(x, y, w, h, { fill: C.onDark[0], stroke: f.outline })];
   const step = f.spacing * Math.SQRT2;
   for (let c = x + y + step / 2; c < x + w + y + h; c += step) {
     const xa = Math.max(x, c - (y + h));
@@ -596,7 +596,7 @@ if (import.meta.main) {
   const width = flag('--width'), height = flag('--height');
   const [input, output] = args;
   if (!input || !output) {
-    console.error('usage: node scripts/svg.js chart.json out.svg [--no-frame] [--width N] [--height N]');
+    console.error('用法：node scripts/svg.js chart.json out.svg [--no-frame] [--width N] [--height N]');
     process.exit(2);
   }
   try {

@@ -503,7 +503,7 @@ test('slide and chart text uses JhengHei, minimum 12 pt, and only token colors',
   }
 });
 
-test('rank: single series, reverse categories, external labels, one focus point and blue bold label', async () => {
+test('rank：單一系列、反向類別、外部標籤與粗體重點標籤', async () => {
   const { zip } = await nativeDeck(), { root } = await chartAt(zip, 1);
   const series = nodes(root, 'c:ser');
   assert.equal(series.length, 1);

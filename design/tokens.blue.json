@@ -1,0 +1,99 @@
+{
+  "name": "blue",
+  "description": "原本的 B′ 深藍設計層。",
+  "version": "1.1",
+  "slide": { "widthIn": 13.333, "heightIn": 7.5, "widthPx": 1920, "heightPx": 1080, "pxPerIn": 144, "pxPerPt": 2 },
+  "margin": { "x": 100, "top": 72, "bottom": 52, "titleGap": 28, "contentGap": 56, "sourceGap": 48 },
+  "chartArea": {
+    "evidence": { "width": 1144, "height": 669 },
+    "evidenceTwoLineTitle": { "width": 1144, "height": 599 },
+    "evidenceNoNote": { "width": 1720, "height": 669 }
+  },
+  "font": {
+    "latin": ["Helvetica Neue", "Segoe UI", "Arial"],
+    "cjk": ["PingFang TC", "Microsoft JhengHei"],
+    "numerals": "tabular",
+    "italic": false
+  },
+  "type": {
+    "display": { "px": 104, "weight": 600 },
+    "statement": { "px": 88, "weight": 600, "color": "#111111" },
+    "number": { "px": 120, "weight": 300, "color": "#111111" },
+    "conclusionNumber": { "px": 88, "weight": 300, "color": "#125A98" },
+    "title": { "px": 56, "weight": 600, "color": "#00315A" },
+    "sub": { "px": 36, "weight": 400 },
+    "body": { "px": 32, "weight": 400, "color": "#111111" },
+    "chartTitle": { "px": 32, "weight": 600, "color": "#00315A" },
+    "tableBody": { "px": 32, "weight": 400, "emphasisWeight": 600, "color": "#111111" },
+    "tableHeader": { "px": 24, "weight": 400, "color": "#4A4A4A" },
+    "label": { "px": 24, "weight": 400, "color": "#4A4A4A" },
+    "minimum": 24
+  },
+  "stroke": { "grid": 1, "axis": 1, "focusRule": 4, "focusLine": 3, "otherLine": 1.5, "tickLong": 14, "tickShort": 7, "axisTick": 8 },
+  "sourceRow": { "maxLines": 2, "overflow": "warn", "shrinkText": false, "fields": ["source", "unit", "period", "missing"] },
+  "color": {
+    "text": "#111111", "textSecondary": "#4A4A4A", "grid": "#DDDDDD", "gray": "#7F7F7F",
+    "title": "#00315A", "dark": "#023560", "onDark": ["#FFFFFF", "#B5CFEC"], "tint": "#E8EFF7",
+    "focus": "#125A98",
+    "ordered": ["#8AAFD6", "#6898C9", "#4B83BB", "#2F6DAA", "#125A98"],
+    "categorical": ["#125A98", "#9B482F", "#B58A26", "#976DA9"],
+    "other": "#B3B3B3",
+    "better": "#125A98",
+    "worse": "#9B482F",
+    "unchanged": "#4A4A4A"
+  },
+  "textOnFill": {
+    "#FFFFFF": ["#2F6DAA", "#125A98", "#9B482F", "#023560"],
+    "#111111": ["#8AAFD6", "#6898C9", "#4B83BB", "#B58A26", "#976DA9", "#B3B3B3", "#E8EFF7"]
+  },
+  "categoryRules": {
+    "stableColorPerCategory": true,
+    "otherByName": "其他",
+    "maxCategorical": 4
+  },
+  "delta": {
+    "signs": { "increase": "＋", "decrease": "−", "unchanged": "±0" },
+    "better": { "values": ["higher", "lower"], "default": "higher" },
+    "colorAppliesTo": "deltaLabelOnly",
+    "noPrevious": "omit",
+    "previousZero": "absoluteOnly",
+    "percentOfPercent": "個百分點"
+  },
+  "dataDisplay": {
+    "zero": "plotAndLabel",
+    "missing": { "plot": false, "sourceField": "未提供：{item}" },
+    "roundsToZero": { "positive": "<{precision}", "negative": ">−{precision}" },
+    "labelsFormatOnly": true
+  },
+  "heatmap": { "steps": 5, "binning": "equalWidth", "from": 0, "to": "max", "legendShowsRanges": true },
+  "fill": {
+    "estimate": {
+      "svg": { "pattern": "hatch", "angle": 45, "stroke": "#125A98", "width": 1.5, "spacing": 7, "outline": "#125A98" },
+      "native": { "color": "#8AAFD6", "labelSuffix": "預估" }
+    },
+    "other": {
+      "svg": { "pattern": "hatch", "angle": 45, "stroke": "#B3B3B3", "width": 2, "spacing": 7 },
+      "native": { "color": "#B3B3B3" }
+    }
+  },
+  "layoutFields": {
+    "fields": ["kicker", "claim", "note", "visual", "sources"],
+    "emptyField": "omitCell",
+    "layouts": {
+      "cover": ["kicker", "claim", "note", "sources"],
+      "summary": ["kicker", "claim", "visual", "sources"],
+      "section": ["kicker", "claim", "note", "sources"],
+      "statement": ["kicker", "claim", "note", "sources"],
+      "evidence": ["kicker", "claim", "visual", "note", "sources"],
+      "numbers": ["kicker", "claim", "visual", "sources"],
+      "compare": ["kicker", "claim", "visual", "sources"],
+      "steps": ["kicker", "claim", "visual", "sources"],
+      "close": ["kicker", "claim", "visual", "sources"]
+    }
+  },
+  "export": {
+    "tool": "pptxgenjs",
+    "native": ["rankingBar", "line", "slope", "stacked100", "scatter", "table"],
+    "svgWithPngFallback": ["smallMultiples", "waterfall", "histogram", "dotPlot", "matrix2x2", "dumbbell", "funnel", "heatmap"]
+  }
+}

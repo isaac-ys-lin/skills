@@ -106,7 +106,7 @@ test('bridge: totals are checked, colors follow better, axis covers a dip below 
   assert.deepEqual(lower.model.warnings, []);
 });
 
-test('bridge: estimate is hatched blue', () => {
+test('bridge：預估值的斜線使用生效設計層的顏色', () => {
   const { svg } = render(JSON.parse(readFileSync('examples/bridge.json', 'utf8')));
   assert.ok(count(svg, new RegExp(`<line[^>]*stroke="${T.fill.estimate.svg.stroke}"[^>]*stroke-width="${T.fill.estimate.svg.width}"`, 'g')) > 10);
 });

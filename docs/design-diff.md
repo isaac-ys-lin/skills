@@ -1,6 +1,6 @@
 # Phase 3：PowerPoint 與設計稿的差異
 
-對照 [簡報樣張](../design/claude-design/Blueprint%20Deck.dc.html)、[圖表樣張](../design/claude-design/Blueprint%20Charts.dc.html) 與 [規格 v1.1](../design/spec.md)。色彩、字級與線寬仍以 [tokens](../design/tokens.json) 為準。依 Claude 回報，PowerPoint 實際開檔與匯出檢查已完成；以下保留設計差異、修正與編輯限制，剩餘實機驗收是使用者在影片彩排時操作「編輯資料」。
+對照 [簡報樣張](../design/claude-design/Blueprint%20Deck.dc.html)、[圖表樣張](../design/claude-design/Blueprint%20Charts.dc.html) 與 [規格 v1.1](../design/spec.md)。色彩、字級與線寬以[目前生效的設計層](../design/README.md)為準。以下實機驗收紀錄對應原本的 B′ 深藍版本，clay 輸出仍需另行驗收。依 Claude 回報，PowerPoint 實際開檔與匯出檢查已完成；以下保留設計差異、修正與編輯限制，剩餘實機驗收是使用者在影片彩排時操作「編輯資料」。
 
 ## 版型與字型
 
@@ -32,7 +32,7 @@ rank、line、slope、share、scatter 使用原生圖表及內嵌活頁簿；tab
 | 極小值與強制 SVG | 非零值若在顯示精度下會成為 0，原生圖改走 SVG 並警告，以保留 `<`／`>−` 標籤；也可指定 `native: false`。這兩種情況沒有可「編輯資料」的圖表活頁簿。 |
 | 標籤位置 | 原生圖表的標籤位置交由 PowerPoint 排版，無法逐像素重現 SVG 的固定偏移與避碰。刻度、數字精度、顏色取 model；軸界採上述自動上界與散佈留白規則。密集標籤仍可能需要手動調整。 |
 
-原生圖的數值標籤使用 `showSerName`／`showVal`，並在逐點 `c:dLbl` 明定 `numFmt`，避免 PowerPoint 忽略系列層級格式；數字仍隨資料更新，不寫成靜態文字。scatter 名稱是上述例外。缺值從圖表 `numCache` 與活頁簿空儲存格移除，折線使用 `displayBlanksAs: gap`；0 則保留為觀察值。改內嵌資料只能更新 PowerPoint 的圖表，無法重新執行 Blueprint 的排序、Focus 選擇、極小值判定、缺值來源列或頁面結論；需要這些規則時應改原始 spec 後重產。
+原生圖的數值標籤使用 `showSerName`／`showVal`，並在逐點 `c:dLbl` 明定 `numFmt`，避免 PowerPoint 忽略系列層級格式；數字仍隨資料更新，不寫成靜態文字。scatter 名稱是上述例外。缺值從圖表 `numCache` 與活頁簿空儲存格移除，折線使用 `displayBlanksAs: gap`；0 則保留為觀察值。改內嵌資料只能更新 PowerPoint 的圖表，無法重新執行 Clayprint 的排序、Focus 選擇、極小值判定、缺值來源列或頁面結論；需要這些規則時應改原始 spec 後重產。
 
 ## 驗收狀態與影片彩排
 

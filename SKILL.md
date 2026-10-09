@@ -1,9 +1,9 @@
 ---
-name: blueprint
-description: "將使用者提供的文字稿做成有故事線的簡報／PowerPoint：先寫每頁判斷，再挑版型與主視覺，輸出可編輯的原生圖表或 SVG。適用於從文字稿製作新簡報。"
+name: clayprint
+description: "Clayprint 將使用者提供的文字稿做成有故事線的簡報／PowerPoint：先寫每頁判斷，再挑版型與主視覺，輸出可編輯的原生圖表或 SVG。適用於從文字稿製作新簡報。"
 ---
 
-# Blueprint
+# Clayprint
 
 把文字稿整理成觀眾看得懂、能據以決定下一步的 PowerPoint。交付一份完整簡報、對應的 story.json 與驗證結果。
 
@@ -21,7 +21,7 @@ description: "將使用者提供的文字稿做成有故事線的簡報／PowerP
 
 - 先有判斷，再找支撐它的主視覺；每頁回答一個問題，標題寫結論。
 - 範本是元件庫，不是表單。有內容才放那一格；補充文字放 `note`，完整講稿放 `notes`。
-- 沿用 Blueprint 的色彩職務、字級與留白；警告是看圖判斷的線索，不是硬改的命令。版面擁擠仍可輸出，只有資料或結構使畫面無法成立時才中止建檔。
+- 沿用 Clayprint 的色彩職務、字級與留白；警告是看圖判斷的線索，不是硬改的命令。版面擁擠仍可輸出，只有資料或結構使畫面無法成立時才中止建檔。
 
 ## 流程
 
@@ -34,6 +34,10 @@ description: "將使用者提供的文字稿做成有故事線的簡報／PowerP
 5. 輸出：`node scripts/pptx.js story.json deck.pptx`。
 6. 在有 PowerPoint 且可操作它的 Mac，以 `node scripts/preview.js deck.pptx out/preview` 逐頁看圖（也需要現有的 `pdftoppm`、`ffmpeg`）。其他環境先建立工作資料夾（例如 `mkdir -p out`），將證據頁的 `visual` 另存為 `out/圖表.json`，執行 `node scripts/svg.js out/圖表.json out/圖表.svg`，再用 `node scripts/png.js out/圖表.svg out/圖表.png` 轉圖並開啟 PNG 檢查。可先跑 `node scripts/svg.js examples/rank.json out/rank.svg` 與 `node scripts/png.js out/rank.svg out/rank.png` 確認工具可用。SVG／PNG 只驗圖表，不代表投影片版面已驗收。
 7. 依警告與預覽，改最弱的一頁，再重建與核對。沒有警告也無法預覽 PowerPoint 時，挑畫面內容最難支持標題判斷的一頁；仍難區分時，先看空格最多或來源列最長的一頁。交件列出警告、資料缺口及沒做到的地方；編輯限制見 [設計差異](docs/design-diff.md)。
+
+## 設計層
+
+預設使用 clay 設計層；切換 B′ 深藍範例與檢查自訂配色的指令見 [設計層說明](design/README.md)。所有輸出都沿用目前生效的設計層。
 
 ## 驗證
 

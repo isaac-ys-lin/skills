@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
-import { T, C, SLIDE_FONT, delta, formatValue, textWidth, categoryColors, prepare, decimalsOf, textOn } from './core.js';
+import { T, C, SLIDE_FONT, delta, formatValue, textWidth, categoryLimit, categoryColors, prepare, decimalsOf, textOn } from './core.js';
 import { render } from './svg.js';
 import { svgToPng } from './png.js';
 
@@ -562,6 +562,7 @@ LAYOUT.compare = (slide, ctx) => {
 const monthIndex = (ym) => { const [y, m] = String(ym).split('-').map(Number); return y * 12 + (m - 1); };
 
 LAYOUT.steps = (slide, ctx) => {
+  if (!Array.isArray(C.ordered) || C.ordered.length < 2) throw new Error('color.ordered 長度不足：至少需要 2 色');
   const { page, story } = ctx;
   header(slide, page.kicker, story.title);
   const bottom = title(slide, page.claim ?? '');
@@ -640,8 +641,8 @@ export async function build(story) {
   const warnings = [];
   const charts = [];
   const pres = new PptxGenJS();
-  pres.defineLayout({ name: 'BLUEPRINT', width: T.slide.widthIn, height: T.slide.heightIn });
-  pres.layout = 'BLUEPRINT';
+  pres.defineLayout({ name: 'CLAYPRINT', width: T.slide.widthIn, height: T.slide.heightIn });
+  pres.layout = 'CLAYPRINT';
   pres.title = story.title ?? '';
   pres.author = story.author ?? '';
   pres.company = '';
@@ -651,7 +652,7 @@ export async function build(story) {
   const sections = [...new Set(story.pages.filter((p) => p.type !== 'cover' && p.kicker).map((p) => p.kicker))];
   const categoryOrder = deckCategories(story);
   const folded = categoryColors(categoryOrder, { order: categoryOrder }).folded;
-  if (folded.length) warnings.push(`整份簡報超過 ${T.categoryRules.maxCategorical} 個類別，「${folded.join('、')}」在每張圖都併入「其他」`);
+  if (folded.length) warnings.push(`整份簡報超過 ${categoryLimit()} 個類別，「${folded.join('、')}」在每張圖都併入「其他」`);
   story.pages.forEach((page, i) => {
     const fn = LAYOUT[page.type];
     const slide = pres.addSlide();

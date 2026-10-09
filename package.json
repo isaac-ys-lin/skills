@@ -1,9 +1,9 @@
 {
-  "name": "blueprint",
+  "name": "clayprint",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "AI 簡報 skill：文字稿變成故事線與可編輯的 PowerPoint",
+  "description": "Clayprint 簡報 skill：文字稿變成故事線與可編輯的 PowerPoint",
   "scripts": {
     "test": "node --test"
   },

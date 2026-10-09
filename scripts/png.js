@@ -4,7 +4,7 @@
 import { readFileSync, writeFileSync, globSync, existsSync } from 'node:fs';
 import { basename } from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
-import { FONT_FAMILY } from './core.js';
+import { C, FONT_FAMILY } from './core.js';
 import { framed } from './svg.js';
 
 let pingFangPath;
@@ -43,10 +43,10 @@ export function sheet(files, { columns = 2, gap = 64, size = {} } = {}) {
   const W = columns * cw + (columns + 1) * gap, H = rows * (ch + gap) + gap;
   const body = cells.map((c, i) => {
     const x = gap + (i % columns) * (cw + gap), y = gap + Math.floor(i / columns) * (ch + gap);
-    return `<g transform="translate(${x} ${y})"><text x="0" y="32" font-size="28" font-weight="600" fill="#111111">${c.name}</text><g transform="translate(0 56)">${c.body}</g></g>`;
+    return `<g transform="translate(${x} ${y})"><text x="0" y="32" font-size="28" font-weight="600" fill="${C.text}">${c.name}</text><g transform="translate(0 56)">${c.body}</g></g>`;
   }).join('');
   const warnings = cells.flatMap((c) => c.model.warnings.map((w) => `${c.name}：${w}`));
-  return { svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" font-family="${FONT_FAMILY}"><rect width="${W}" height="${H}" fill="#FFFFFF"/>${body}</svg>`, warnings };
+  return { svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" font-family="${FONT_FAMILY}"><rect width="${W}" height="${H}" fill="${C.onDark[0]}"/>${body}</svg>`, warnings };
 }
 
 if (import.meta.main) {
@@ -64,7 +64,7 @@ if (import.meta.main) {
   const scale = scaleAt >= 0 ? Number(args.splice(scaleAt, 2)[1]) : 1;
   const [input, output] = args;
   if (!input || !output) {
-    console.error('usage: node scripts/png.js in.svg out.png [--scale 2]');
+    console.error('用法：node scripts/png.js in.svg out.png [--scale 2]');
     process.exit(2);
   }
   writeFileSync(output, svgToPng(readFileSync(input, 'utf8'), { scale }));

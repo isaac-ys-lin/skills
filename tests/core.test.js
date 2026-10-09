@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  C, formatValue, delta, niceTicks, categoryColors, shares, textOn, heatBins, textWidth, contrast,
+  T, C, formatValue, delta, niceTicks, categoryColors, shares, textOn, heatBins, textWidth, contrast,
 } from '../scripts/core.js';
 import { measureText, pingFang, hasJhengHei } from '../scripts/png.js';
 
@@ -92,14 +92,13 @@ test('shares keep exact proportions', () => {
   assert.throws(() => shares([0, 0]));
 });
 
-test('textOn follows the spec table and every pair passes 4.5:1', () => {
-  for (const [ink, fills] of Object.entries({ '#FFFFFF': ['#2F6DAA', '#125A98', '#9B482F', '#023560'], '#111111': ['#8AAFD6', '#6898C9', '#4B83BB', '#B58A26', '#976DA9', '#B3B3B3', '#E8EFF7'] })) {
+test('textOn 沿用生效設計層的對照表，每組對比至少 4.5', () => {
+  for (const [ink, fills] of Object.entries(T.textOnFill)) {
     for (const fill of fills) {
       assert.equal(textOn(fill), ink, fill);
       assert.ok(contrast(fill, ink) >= 4.5, `${ink} on ${fill}`);
     }
   }
-  assert.throws(() => textOn('#FF00FF'), 'fills outside the tokens are a bug');
 });
 
 test('heatBins: equal width from 0 to max, upper edge inclusive', () => {

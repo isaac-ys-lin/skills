@@ -1,6 +1,8 @@
-// Data side of Blueprint charts: number formatting, deltas, ticks, color roles.
-// Everything visual comes from design/tokens.json; nothing here draws.
-import tokens from '../design/tokens.json' with { type: 'json' };
+// Data side of Clayprint charts: number formatting, deltas, ticks, color roles.
+// Everything visual comes from the active design layer; nothing here draws.
+import { loadTokens } from './tokens.js';
+
+const tokens = loadTokens();
 
 export const T = tokens;
 export const C = tokens.color;
@@ -78,15 +80,22 @@ export function tickText(axis, t, suffix = '') {
 }
 
 // Color per category name. With a shared order (from the deck), a name keeps its color in every chart;
-// "其他" is gray by name; anything past the 4th category folds into "其他".
+// "其他" is gray by name; categories beyond the available palette fold into "其他".
+export function categoryLimit() {
+  if (!Array.isArray(C.categorical) || C.categorical.length < 1) throw new Error('color.categorical 長度不足：至少需要 1 色');
+  if (!Number.isInteger(tokens.categoryRules.maxCategorical) || tokens.categoryRules.maxCategorical < 1) throw new Error('categoryRules.maxCategorical 必須是至少 1 的整數');
+  return Math.min(tokens.categoryRules.maxCategorical, C.categorical.length);
+}
+
 export function categoryColors(names, { order } = {}) {
+  const limit = categoryLimit();
   const ranked = [...(order ?? []), ...names].filter((n, i, all) => n !== OTHER && all.indexOf(n) === i);
   const colors = new Map();
   const folded = [];
   for (const name of names) {
     if (name === OTHER) continue;
     const i = ranked.indexOf(name);
-    if (i < tokens.categoryRules.maxCategorical) colors.set(name, C.categorical[i]);
+    if (i < limit) colors.set(name, C.categorical[i]);
     else folded.push(name);
   }
   folded.sort((a, b) => ranked.indexOf(a) - ranked.indexOf(b));
@@ -101,18 +110,19 @@ export function shares(values) {
   return values.map((v) => v / sum);
 }
 
-const inkFor = new Map(Object.entries(tokens.textOnFill).flatMap(([ink, fills]) => fills.map((f) => [f.toUpperCase(), ink])));
-
-// Label color on a filled mark, from the spec's contrast table.
-export function textOn(fill) {
-  const ink = inkFor.get(fill.toUpperCase());
-  if (!ink) throw new Error(`色塊 ${fill} 不在規格的文字對比表裡`);
-  return ink;
+// Keep explicit design choices; new fills use the more legible of the two body inks.
+export function textOn(fill, design = T) {
+  for (const [ink, fills] of Object.entries(design.textOnFill ?? {})) {
+    if (fills.some((color) => color.toUpperCase() === fill.toUpperCase())) return ink;
+  }
+  const { text, onDark } = design.color;
+  return contrast(fill, text) >= contrast(fill, onDark[0]) ? text : onDark[0];
 }
 
 function luminance(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) throw new Error(`色碼 ${hex} 必須是 #RRGGBB 格式`);
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
-    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
@@ -123,6 +133,9 @@ export function contrast(a, b) {
 
 // Equal-width bins from 0 to the maximum; each bin holds its lower edge, the top bin also its upper edge.
 export function heatBins(values, steps = tokens.heatmap.steps) {
+  if (!Array.isArray(C.ordered) || C.ordered.length < 2) throw new Error('color.ordered 長度不足：至少需要 2 色');
+  if (!Number.isInteger(steps) || steps < 2) throw new Error('heatmap.steps 必須是至少 2 的整數');
+  steps = Math.min(steps, C.ordered.length);
   const nums = values.filter(isNum);
   if (nums.some((v) => v < 0)) throw new Error('熱度格從 0 起算；有負值要改用雙向色階');
   const max = Math.max(...nums);
@@ -205,7 +218,7 @@ function series(spec, m, opts, tickCount) {
   m.axis = niceTicks(Math.min(0, ...all), Math.max(...all), tickCount);
   const single = spec.series.length === 1;
   const cats = spec.focus || single || spec.kind === 'multiples' ? null : categoryColors(spec.series.map((s) => s.name), { order: opts.categoryOrder });
-  if (cats?.folded.length) m.warnings.push(`沒有 focus 的系列超過 4 條，「${cats.folded.join('、')}」改用「其他」的灰`);
+  if (cats?.folded.length) m.warnings.push(`沒有 focus 的系列超過 ${categoryLimit()} 條，「${cats.folded.join('、')}」改用「其他」的灰`);
   if (spec.focus && !spec.series.some((s) => s.name === spec.focus)) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
   m.series = spec.series.map((s) => {
     s.values.forEach((v, i) => v === null && m.missing.push(`${s.name}／${spec.x[i]}`));
@@ -236,6 +249,7 @@ KINDS.multiples = (spec, m, opts) => {
 
 // Two periods per row: slope and dumbbell. Older period is the light Ordered step, newer the darkest.
 function pairs(spec, m, { fromZero = false } = {}) {
+  need(Array.isArray(C.ordered) && C.ordered.length >= 2, 'color.ordered 長度不足：至少需要 2 色');
   need(Array.isArray(spec.periods) && spec.periods.length === 2, `${spec.kind} 需要兩個 periods`);
   need(Array.isArray(spec.rows) && spec.rows.length, `${spec.kind} 需要 rows`);
   m.periods = spec.periods;
@@ -264,7 +278,7 @@ KINDS.share = (spec, m, opts) => {
   need(Array.isArray(spec.categories) && spec.categories.length, 'share 需要 categories');
   need(Array.isArray(spec.rows) && spec.rows.length, 'share 需要 rows');
   const { colors, folded } = categoryColors(spec.categories, { order: opts.categoryOrder });
-  if (folded.length) m.warnings.push(`超過 ${tokens.categoryRules.maxCategorical} 類，「${folded.join('、')}」併入「其他」`);
+  if (folded.length) m.warnings.push(`超過 ${categoryLimit()} 類，「${folded.join('、')}」併入「其他」`);
   const ranked = [...(opts.categoryOrder ?? []), ...spec.categories];
   const kept = spec.categories.filter((c) => c !== OTHER && colors.has(c)).sort((a, b) => ranked.indexOf(a) - ranked.indexOf(b));
   if (!kept.length) m.warnings.push('所有類別都被併入「其他」，這張圖沒有資訊');

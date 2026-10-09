@@ -1,4 +1,4 @@
-# 從文字稿驗收簡報
+# Clayprint：從文字稿驗收簡報
 
 獨立製作者先只讀 SKILL.md 與 [有數字稿](with-numbers.md) 或 [無數字稿](without-numbers.md)，自行完成故事線與 PowerPoint。驗收者再依 [有數字清單](with-numbers.checklist.md)、[無數字清單](without-numbers.checklist.md) 逐頁檢查；這兩份稿沒有預寫的 story 答案。
 
