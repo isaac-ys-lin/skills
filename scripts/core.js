@@ -8,9 +8,10 @@ export const T = tokens;
 export const C = tokens.color;
 export const FONT_FAMILY = [...tokens.font.latin, ...tokens.font.cjk, 'sans-serif']
   .map((f) => (f.includes(' ') ? `'${f}'` : f)).join(', ');
-// Inside PowerPoint every run uses Microsoft JhengHei: Windows has it and Office for Mac bundles it,
-// so slides and the charts embedded in them look the same on both.
-export const SLIDE_FONT = 'Microsoft JhengHei';
+// Inside PowerPoint every run uses one font, font.slide in the design layer. The default, Microsoft JhengHei,
+// ships with Windows and Office for Mac, so slides and their embedded charts look the same on both.
+// Text widths are calibrated for it; with another font, check line breaks in the preview.
+export const SLIDE_FONT = tokens.font.slide ?? 'Microsoft JhengHei';
 const MINUS = '−';
 const OTHER = tokens.categoryRules.otherByName;
 

@@ -41,6 +41,8 @@ description: "Clayprint 把文字稿做成簡報／PowerPoint 或連續閱讀的
 
 ## 設計層與驗證
 
+要改成自己的設計或流程時，讀 [改造步驟](docs/make-it-yours.md)。
+
 預設 clay 設計層；切換 B′ 深藍範例與檢查自訂配色見 [設計層說明](design/README.md)。逐頁檢查判斷、數字、單位、期間、來源、缺值、遮擋與閱讀順序。驗收器通過只證明結構、數字對照和程式可建檔；獨立驗收見 [有數字稿](evals/with-numbers.md)與[無數字稿](evals/without-numbers.md)。
 
 ## 文字稿 → 報告
