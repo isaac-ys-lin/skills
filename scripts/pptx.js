@@ -220,6 +220,132 @@ function chart(slide, spec, area, ctx) {
 // ---- layouts
 
 const LAYOUT = {};
+const CHART_KINDS = new Set(['rank', 'line', 'slope', 'share', 'scatter', 'table', 'multiples', 'bridge', 'histogram', 'strip', 'matrix', 'dumbbell', 'funnel', 'heat']);
+const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
+const emptyCell = (v) => isObject(v) && Object.values(v).every((x) => x === null || x === undefined || x === '' || (Array.isArray(x) && !x.length));
+
+// Validate before category collection or rendering, so malformed JSON points back to its editable field.
+export function validateStory(story) {
+  const need = (ok, path, repair, n) => {
+    if (!ok) throw new Error(`${n ? `第 ${n} 頁：` : ''}${path} 格式不正確；請${repair}。`);
+  };
+  need(isObject(story), 'story', '提供包含 pages 的 JSON 物件');
+  need(Array.isArray(story.pages) && story.pages.length > 0, 'pages', '提供至少一頁的陣列');
+  for (const key of ['title', 'date', 'author']) if (story[key] != null) need(typeof story[key] === 'string', key, '改成文字字串');
+  story.pages.forEach((page, i) => {
+    const p = `pages[${i}]`, n = i + 1;
+    const check = (ok, path, repair) => need(ok, `${p}${path ? `.${path}` : ''}`, repair, n);
+    const str = (v, path, required = false) => check(typeof v === 'string' && (!required || v.trim().length > 0), path, required ? '填入非空白文字' : '改成文字字串');
+    const optional = (obj, keys, path = '') => {
+      for (const key of keys) if (obj[key] != null) str(obj[key], `${path}${key}`);
+    };
+    const objects = (v, path) => {
+      check(Array.isArray(v) && v.length > 0, path, '提供至少一筆資料的陣列');
+      v.forEach((item, j) => check(isObject(item), `${path}[${j}]`, '改成資料物件'));
+      check(v.some((item) => !emptyCell(item)), path, '填入至少一筆有內容的資料');
+    };
+    const digits = (v, path) => check(Number.isInteger(v) && v >= 0 && v <= 100, path, '填入 0～100 的整數小數位數');
+    check(isObject(page), '', '改成包含 type 與 claim 的頁面物件');
+    check(typeof page.type === 'string' && Object.hasOwn(LAYOUT, page.type), 'type', `選用 ${Object.keys(LAYOUT).join('、')} 其中一種版型`);
+    str(page.claim, 'claim', true);
+    optional(page, ['kicker', 'note', 'focus']);
+    if (page.notes != null) check(typeof page.notes === 'string' || (Array.isArray(page.notes) && page.notes.every((v) => typeof v === 'string')), 'notes', '改成講稿字串或字串陣列');
+    if (page.sources !== undefined) {
+      check(isObject(page.sources), 'sources', '改成來源物件，例如 { "source": "文字稿" }');
+      optional(page.sources, ['source', 'unit', 'period'], 'sources.');
+      if (page.sources.more !== undefined) check(Array.isArray(page.sources.more) && page.sources.more.every((v) => typeof v === 'string'), 'sources.more', '改成補充說明的字串陣列');
+    }
+    if (page.metric != null) {
+      check(isObject(page.metric), 'metric', '改成包含 value 的重點數字物件');
+      optional(page.metric, ['label', 'unit'], 'metric.');
+      if (!emptyCell(page.metric)) check(typeof page.metric.value === 'string' || isNumber(page.metric.value), 'metric.value', '填入文字或有限數字');
+    }
+    if (!['evidence', 'numbers', 'compare', 'steps', 'close'].includes(page.type)) {
+      if (page.visual != null) check(emptyCell(page.visual), 'visual', '將主視覺移至 evidence 等對應版型，或省略此頁不使用的 visual');
+      return;
+    }
+    const v = page.visual;
+    check(isObject(v), 'visual', `提供 ${page.type} 的主視覺物件，參考 examples/story.json`);
+    if (page.type === 'evidence') {
+      check(CHART_KINDS.has(v.kind), 'visual.kind', `選用 ${[...CHART_KINDS].join('、')} 其中一種圖表`);
+      if (v.native !== undefined) check(typeof v.native === 'boolean', 'visual.native', '填入 true 或 false');
+      if (v.digits !== undefined) digits(v.digits, 'visual.digits');
+      for (const key of ['categories', 'x', 'periods', 'rowLabels', 'colLabels']) if (v[key] !== undefined) check(Array.isArray(v[key]) && v[key].every((s) => typeof s === 'string'), `visual.${key}`, '改成文字字串陣列');
+      if (v.columns && Array.isArray(v.columns)) v.columns.forEach((c, j) => {
+        check(isObject(c), `visual.columns[${j}]`, '改成欄位物件');
+        str(c.name, `visual.columns[${j}].name`, true);
+        if (c.digits !== undefined) digits(c.digits, `visual.columns[${j}].digits`);
+      });
+      if (v.refs !== undefined) {
+        check(Array.isArray(v.refs), 'visual.refs', '改成參考線陣列');
+        v.refs.forEach((r, j) => {
+          check(isObject(r), `visual.refs[${j}]`, '改成參考線物件');
+          for (const key of ['x', 'y']) if (r[key] != null) check(isNumber(r[key]), `visual.refs[${j}].${key}`, '填入有限數字');
+          check(v.kind === 'histogram' ? isNumber(r.x) : isNumber(r.x) || isNumber(r.y), `visual.refs[${j}]`, '提供參考線的數字座標');
+          optional(r, ['label'], `visual.refs[${j}].`);
+        });
+      }
+      if (v.kind === 'matrix') {
+        if (v.domain != null) check(Array.isArray(v.domain) && v.domain.length === 2 && v.domain.every(isNumber) && v.domain[0] < v.domain[1], 'visual.domain', '提供遞增的兩個有限數字，例如 [0, 10]');
+        if (v.split != null) {
+          check(isObject(v.split), 'visual.split', '改成包含 x 或 y 的分割線物件');
+          for (const key of ['x', 'y']) if (v.split[key] != null) check(isNumber(v.split[key]), `visual.split.${key}`, '填入有限數字');
+        }
+      }
+      try { prepare(v); }
+      catch (error) {
+        const detail = /[\u3400-\u9fff]/.test(error.message) ? `（${error.message}）` : '';
+        check(false, 'visual', `依 examples/${v.kind}.json 修正圖表欄位、資料型別與陣列長度${detail}`);
+      }
+    } else if (page.type === 'numbers') {
+      objects(v.items, 'visual.items');
+      v.items.forEach((item, j) => {
+        if (emptyCell(item)) return;
+        const path = `visual.items[${j}].`;
+        str(item.label, `${path}label`, true);
+        check(item.value === null || isNumber(item.value) || (typeof item.value === 'string' && item.value.trim().length > 0), `${path}value`, '填入有限數字或文字；未提供的數值請填 null');
+        optional(item, ['unit', 'deltaSuffix'], path);
+        if (item.prev !== undefined) check(item.prev === null || isNumber(item.prev), `${path}prev`, '填入有限數字，未提供則填 null 或省略');
+        if (item.digits !== undefined) digits(item.digits, `${path}digits`);
+        if (item.better !== undefined) check(['higher', 'lower'].includes(item.better), `${path}better`, '填入 higher 或 lower');
+        if (item.mode !== undefined) check(['abs', 'pct', 'pp'].includes(item.mode), `${path}mode`, '填入 abs、pct 或 pp');
+      });
+    } else if (page.type === 'compare') {
+      check(Array.isArray(v.rows) && v.rows.length > 0 && v.rows.every((r) => typeof r === 'string' && r.trim()), 'visual.rows', '提供非空白比較項目的字串陣列');
+      objects(v.options, 'visual.options');
+      v.options.forEach((o, j) => {
+        if (emptyCell(o)) return;
+        const path = `visual.options[${j}].`;
+        str(o.name, `${path}name`, true);
+        optional(o, ['subtitle'], path);
+        if (o.recommended !== undefined) check(typeof o.recommended === 'boolean', `${path}recommended`, '填入 true 或 false');
+        check(Array.isArray(o.values) && o.values.length === v.rows.length && o.values.every((x) => x === null || typeof x === 'string' || isNumber(x)), `${path}values`, `填入 ${v.rows.length} 格文字或數字的陣列，空格填 null`);
+      });
+    } else if (page.type === 'steps') {
+      const month = (value, path) => { check(typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value), path, '使用 YYYY-MM 月份格式，例如 2026-01'); return monthIndex(value); };
+      const start = month(v.start, 'visual.start'), end = month(v.end, 'visual.end');
+      check(end >= start, 'visual.end', '填入不早於 start 的月份');
+      objects(v.phases, 'visual.phases');
+      v.phases.forEach((phase, j) => {
+        if (emptyCell(phase)) return;
+        const path = `visual.phases[${j}].`;
+        str(phase.name, `${path}name`, true);
+        optional(phase, ['note'], path);
+        const from = month(phase.from, `${path}from`), to = month(phase.to, `${path}to`);
+        check(from >= start && from <= end, `${path}from`, '填入 start 到 end 之間的月份');
+        check(to >= from && to <= end, `${path}to`, '填入 from 到 end 之間的月份');
+      });
+    } else {
+      objects(v.rows, 'visual.rows');
+      v.rows.forEach((row, j) => {
+        if (emptyCell(row)) return;
+        str(row.task, `visual.rows[${j}].task`, true);
+        optional(row, ['owner', 'due'], `visual.rows[${j}].`);
+      });
+    }
+  });
+}
 
 LAYOUT.cover = (slide, ctx) => {
   const { page, story } = ctx;
@@ -252,10 +378,11 @@ LAYOUT.section = (slide, ctx) => {
     text(slide, name, { x, y: rulerY + 4 + 16, w: segW, h: LABEL * LH, color: current ? C.focus : C.textSecondary, bold: current });
   });
   const D = T.type.display.px;
-  const blockH = D * DISPLAY_LH + (page.note ? 28 + T.type.sub.px * 1.5 : 0);
+  const titleH = lines(page.claim ?? '', D, INNER) * D * DISPLAY_LH;
+  const blockH = titleH + (page.note ? 28 + T.type.sub.px * 1.5 : 0);
   const top = (M.top + LABEL + rulerY) / 2 - blockH / 2;
-  if (page.claim) text(slide, page.claim, { x: M.x, y: top, w: INNER, h: D * DISPLAY_LH, px: D, color: C.title, bold: true, lineHeight: DISPLAY_LH });
-  if (page.note) text(slide, page.note, { x: M.x, y: top + D * DISPLAY_LH + 28, w: INNER, h: T.type.sub.px * 1.5, px: T.type.sub.px });
+  if (page.claim) text(slide, page.claim, { x: M.x, y: top, w: INNER, h: titleH, px: D, color: C.title, bold: true, lineHeight: DISPLAY_LH });
+  if (page.note) text(slide, page.note, { x: M.x, y: top + titleH + 28, w: INNER, h: T.type.sub.px * 1.5, px: T.type.sub.px });
 };
 
 LAYOUT.statement = (slide, ctx) => {
@@ -275,7 +402,11 @@ LAYOUT.statement = (slide, ctx) => {
   const noteN = page.note ? lines(page.note, T.type.body.px, width) : 0;
   const blockH = n * S * 1.25 + (page.note ? 40 + noteN * T.type.body.px * 1.5 : 0);
   const top = (M.top + LABEL + ruleY) / 2 - blockH / 2;
-  slide.addText(runs, { x: inch(M.x), y: inch(top), w: inch(width), h: inch(n * S * 1.25), margin: 0, valign: 'top', lineSpacingMultiple: 1.25 });
+  // Split ourselves: pptxgenjs otherwise adds a break after the final line of a multiline rich run.
+  const paragraphs = runs.flatMap(({ text, options }) => text.split('\n').map((text, i, parts) => ({
+    text, options: { ...options, breakLine: i < parts.length - 1 },
+  })));
+  slide.addText(paragraphs, { x: inch(M.x), y: inch(top), w: inch(width), h: inch(n * S * 1.25), margin: 0, valign: 'top', lineSpacingMultiple: 1.25 });
   if (page.note) text(slide, page.note, { x: M.x, y: top + n * S * 1.25 + 40, w: width, h: noteN * T.type.body.px * 1.5, px: T.type.body.px, lineHeight: 1.5 });
 };
 
@@ -285,16 +416,17 @@ LAYOUT.evidence = (slide, ctx) => {
   const bottom = title(slide, page.claim ?? '');
   const ruleY = sourceRow(slide, ctx);
   const top = bottom + M.contentGap, end = ruleY - 48;
-  const side = page.note || page.metric;
+  const metric = page.metric && !emptyCell(page.metric) ? page.metric : null;
+  const side = page.note || metric;
   const area = { x: M.x, y: top, w: side ? T.chartArea.evidence.width : T.chartArea.evidenceNoNote.width, h: end - top };
   if (page.visual) chart(slide, page.visual, area, ctx);
   if (!side) return;
   const x = M.x + area.w + 96, w = INNER - area.w - 96;
   let y = top;
-  if (page.metric) {
+  if (metric) {
     if (page.metric.label) { text(slide, page.metric.label, { x, y, w, h: LABEL * LH }); y += LABEL * LH + 8; }
     const N = T.type.conclusionNumber.px;
-    slide.addText([run(page.metric.value, { px: N, color: C.focus }), run(page.metric.unit ? ` ${page.metric.unit}` : '', { px: T.type.body.px, color: C.textSecondary })].filter((r) => r.text),
+    slide.addText([run(String(page.metric.value), { px: N, color: C.focus }), run(page.metric.unit ? ` ${page.metric.unit}` : '', { px: T.type.body.px, color: C.textSecondary })].filter((r) => r.text),
       { x: inch(x), y: inch(y), w: inch(w), h: inch(N * 1.2), margin: 0, valign: 'bottom' });
     y += N * 1.2 + 32;
   }
@@ -306,7 +438,7 @@ LAYOUT.numbers = (slide, ctx) => {
   header(slide, page.kicker, story.title);
   const bottom = title(slide, page.claim ?? '');
   const ruleY = sourceRow(slide, ctx);
-  const items = page.visual?.items ?? [];
+  const items = page.visual.items.filter((it) => !emptyCell(it));
   if (items.length < 2 || items.length > 4) ctx.warn(`第 ${ctx.n} 頁數字格是 ${items.length} 格，規格是 2～4 格`);
   const gap = 56, cw = (INNER - gap * (items.length - 1)) / items.length;
   const N = T.type.number.px, B = T.type.body.px;
@@ -336,7 +468,9 @@ LAYOUT.compare = (slide, ctx) => {
   header(slide, page.kicker, story.title);
   const bottom = title(slide, page.claim ?? '');
   const ruleY = sourceRow(slide, ctx);
-  const { rows = [], options = [] } = page.visual ?? {};
+  const { rows } = page.visual;
+  const options = page.visual.options.filter((o) => !emptyCell(o));
+  if (options.length < 2 || options.length > 3) ctx.warn(`第 ${ctx.n} 頁比較方案是 ${options.length} 個，規格是 2～3 個`);
   const labelW = 300, gap = 48, ow = (INNER - labelW - gap * options.length) / options.length;
   const top = bottom + M.contentGap, end = ruleY - 48;
   const headH = T.type.sub.px * 1.4 + LABEL * LH + 24;
@@ -371,7 +505,8 @@ LAYOUT.steps = (slide, ctx) => {
   header(slide, page.kicker, story.title);
   const bottom = title(slide, page.claim ?? '');
   const ruleY = sourceRow(slide, ctx);
-  const { start, end, phases = [] } = page.visual ?? {};
+  const { start, end } = page.visual;
+  const phases = page.visual.phases.filter((p) => !emptyCell(p));
   const m0 = monthIndex(start), months = monthIndex(end) - m0 + 1;
   const nameW = 520, x0 = M.x + nameW, x1 = W - M.x, mw = (x1 - x0) / months;
   const top = bottom + M.contentGap;
@@ -404,10 +539,11 @@ LAYOUT.close = (slide, ctx) => {
   header(slide, page.kicker, story.title);
   const bottom = title(slide, page.claim ?? '');
   const ruleY = sourceRow(slide, ctx);
-  const rows = page.visual?.rows ?? [];
+  const rows = page.visual.rows.filter((r) => !emptyCell(r));
   const ownerW = 420, dueW = 240, gap = 48;
   const taskW = INNER - ownerW - dueW - 2 * gap;
-  const cols = [[M.x, taskW, '下一步', 'task'], [M.x + taskW + gap, ownerW, '負責人', 'owner'], [M.x + taskW + ownerW + 2 * gap, dueW, '期限', 'due']];
+  const cols = [[M.x, taskW, '下一步', 'task'], [M.x + taskW + gap, ownerW, '負責人', 'owner'], [M.x + taskW + ownerW + 2 * gap, dueW, '期限', 'due']]
+    .filter(([, , , key]) => rows.some((row) => row[key]));
   const top = bottom + M.contentGap;
   for (const [x, w, name] of cols) text(slide, name, { x, y: top, w, h: LABEL * LH });
   const headY = top + LABEL * LH + 12;
@@ -436,6 +572,7 @@ function deckCategories(story) {
 }
 
 export async function build(story) {
+  validateStory(story);
   const warnings = [];
   const charts = [];
   const pres = new PptxGenJS();
@@ -453,10 +590,10 @@ export async function build(story) {
   if (folded.length) warnings.push(`整份簡報超過 ${T.categoryRules.maxCategorical} 個類別，「${folded.join('、')}」在每張圖都併入「其他」`);
   story.pages.forEach((page, i) => {
     const fn = LAYOUT[page.type];
-    if (!fn) throw new Error(`第 ${i + 1} 頁：不認得的版型 ${page.type}`);
     const slide = pres.addSlide();
     slide.background = { color: hex(C.onDark[0]) };
     const ctx = { story, page, n: i + 1, total: story.pages.length, sections, categoryOrder, charts, missing: [], warn: (w) => warnings.push(w) };
+    if (page.type === 'numbers') ctx.missing.push(...page.visual.items.filter((it) => !emptyCell(it) && it.value === null).map((it) => it.label));
     // The source row is laid out before the chart (it decides the chart's height), so collect missing values first.
     if (page.type === 'evidence' && page.visual) {
       ctx.model = prepare(page.visual, { categoryOrder });
@@ -590,6 +727,12 @@ async function finish(buf, story, charts) {
   await patch(zip, 'ppt/theme/theme1.xml', (s) => s
     .replace(/<a:font script="Hant" typeface="[^"]*"\/>/g, `<a:font script="Hant" typeface="${SLIDE_FONT}"/>`)
     .replace(/<a:ea typeface="[^"]*"\/>/g, `<a:ea typeface="${SLIDE_FONT}"/>`));
+  // pptxgenjs hardcodes en-US in runs and paragraph endings even when the theme sets zh-TW.
+  for (const name of Object.keys(zip.files).filter((n) => /^ppt\/.*\.xml$/.test(n))) {
+    await patch(zip, name, (s) => s
+      .replace(/<a:(?:rPr|defRPr|endParaRPr)\b[^>]*>/g, (tag) => tag.replace(/\s(?:lang|altLang)="[^"]*"/g, '').replace(/^<a:\w+/, '$& lang="zh-TW"'))
+      .replace(/(<c:lang\b[^>]*\bval=)"[^"]*"/g, '$1"zh-TW"'));
+  }
   for (const name of Object.keys(zip.files)) {
     const m = name.match(/^ppt\/media\/image-(\d+)-(\d+)\.svg$/);
     if (!m) continue;

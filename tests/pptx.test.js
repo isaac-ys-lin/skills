@@ -3,10 +3,92 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import JSZip from 'jszip';
-import { build } from '../scripts/pptx.js';
+import { build, validateStory } from '../scripts/pptx.js';
 import { T, C, SLIDE_FONT, prepare, textOn, decimalsOf } from '../scripts/core.js';
 
 const example = (kind) => JSON.parse(readFileSync(`examples/${kind}.json`, 'utf8'));
+
+test('story validation names the page, JSON path, and repair for malformed input', () => {
+  const cases = [
+    [null, 'story'], [{ pages: [] }, 'pages'], [{ pages: [null] }, 'pages[0]'],
+    [{ pages: [{ type: 'constructor', claim: '判斷' }] }, 'pages[0].type'],
+    [{ pages: [{ type: 'statement', claim: ' ' }] }, 'pages[0].claim'],
+    [{ pages: [{ type: 'evidence', claim: '判斷' }] }, 'pages[0].visual'],
+    [{ pages: [{ type: 'evidence', claim: '判斷', visual: { kind: 'line', series: [null] } }] }, 'pages[0].visual'],
+    [{ pages: [{ type: 'evidence', claim: '判斷', visual: { kind: 'constructor' } }] }, 'pages[0].visual.kind'],
+    [{ pages: [{ type: 'statement', claim: '判斷', visual: { kind: 'line', series: '錯誤' } }] }, 'pages[0].visual'],
+    [{ pages: [{ type: 'numbers', claim: '判斷', visual: { items: [{ label: '甲', value: {} }] } }] }, 'pages[0].visual.items[0].value'],
+    [{ pages: [{ type: 'numbers', claim: '判斷', visual: { items: [] } }] }, 'pages[0].visual.items'],
+    [{ pages: [{ type: 'compare', claim: '判斷', visual: { rows: ['成本'], options: [{ name: '甲', values: [] }] } }] }, 'pages[0].visual.options[0].values'],
+    [{ pages: [{ type: 'steps', claim: '判斷', visual: { start: '2026-13', end: '2026-12', phases: [] } }] }, 'pages[0].visual.start'],
+    [{ pages: [{ type: 'close', claim: '判斷', visual: { rows: [null] } }] }, 'pages[0].visual.rows[0]'],
+    [{ pages: [{ type: 'statement', claim: '判斷', sources: { more: '補充' } }] }, 'pages[0].sources.more'],
+  ];
+  for (const [story, path] of cases) assert.throws(() => validateStory(story), (err) => {
+    assert.ok(err.message.includes(path), err.message);
+    assert.match(err.message, /請/);
+    if (path.startsWith('pages[')) assert.match(err.message, /第 1 頁/);
+    return true;
+  });
+});
+
+test('build validates before collecting chart categories', async () => {
+  await assert.rejects(build({ pages: [{ type: 'evidence', claim: '判斷', visual: { kind: 'line', series: [null] } }] }), /第 1 頁.*pages\[0\]\.visual.*請/);
+});
+
+test('story validation accepts examples and rejects unsafe dates and visual settings', () => {
+  const valid = example('story'), before = structuredClone(valid);
+  assert.doesNotThrow(() => validateStory(valid));
+  assert.deepEqual(valid, before, 'validation leaves authored content untouched');
+  const changes = [
+    ['numbers', (p) => { p.visual.items[0].digits = -1; }, /items\[0\]\.digits/],
+    ['steps', (p) => { p.visual.end = '2025-12'; }, /visual\.end/],
+    ['steps', (p) => { p.visual.phases[0].to = '2027-01'; }, /phases\[0\]\.to/],
+    ['evidence', (p) => { p.visual.native = 'false'; }, /visual\.native/],
+    ['evidence', (p) => { p.visual = { kind: 'matrix', domain: [0, 0], points: [{ label: '甲', x: 1, y: 2 }] }; }, /visual\.domain/],
+  ];
+  for (const [type, change, error] of changes) {
+    const story = example('story'), page = story.pages.find((p) => p.type === type);
+    change(page);
+    assert.throws(() => validateStory(story), error);
+  }
+});
+
+test('empty visual cells and metric omit their blocks while missing numbers remain in sources', async () => {
+  const pages = [
+    { type: 'numbers', claim: '觀察與缺值', visual: { items: [{}, { label: '甲', value: 0 }, { label: '乙', value: null }] } },
+    { type: 'compare', claim: '比較', visual: { rows: ['條件'], options: [{}, { name: '甲', values: ['可行'] }, { name: '乙', values: ['待確認'] }] } },
+    { type: 'close', claim: '下一步', visual: { rows: [{}, { task: '提出草案' }] } },
+    { type: 'evidence', claim: '觀察', visual: visuals[0], metric: {} },
+  ];
+  const omitted = structuredClone(pages);
+  omitted[0].visual.items.shift();
+  omitted[1].visual.options.shift();
+  omitted[2].visual.rows.shift();
+  delete omitted[3].metric;
+  const a = await deck(pages), b = await deck(omitted);
+  for (let n = 1; n <= pages.length; n++) assert.equal(await a.zip.file(`ppt/slides/slide${n}.xml`).async('string'), await b.zip.file(`ppt/slides/slide${n}.xml`).async('string'));
+  const numbers = textOf(await xml(a.zip, 'ppt/slides/slide1.xml'));
+  assert.ok(numbers.includes('未提供：乙'));
+  assert.ok(numbers.includes('0'));
+  assert.doesNotMatch(textOf(await xml(a.zip, 'ppt/slides/slide3.xml')), /負責人|期限/);
+  assert.deepEqual(a.warnings, []);
+});
+
+test('renderable numbers and comparison counts are warnings rather than blockers', async () => {
+  const { buffer, warnings } = await deck([
+    { type: 'numbers', claim: '觀察', visual: { items: [{ label: '甲', value: 1 }] }, notes: ['講稿甲', '講稿乙'] },
+    { type: 'compare', claim: '比較', visual: { rows: ['條件'], options: [{ name: '甲', values: ['可行'] }] } },
+  ]);
+  assert.ok(buffer.length);
+  assert.ok(warnings.some((w) => /第 1 頁.*2～4/.test(w)));
+  assert.ok(warnings.some((w) => /第 2 頁.*2～3/.test(w)));
+});
+
+test('a numeric zero in an evidence metric remains visible', async () => {
+  const { zip } = await deck([{ type: 'evidence', claim: '觀察', visual: visuals[0], metric: { label: '新增件數', value: 0 } }]);
+  assert.ok(nodes(await xml(zip, 'ppt/slides/slide1.xml'), 'a:t').some((node) => textOf(node) === '0'));
+});
 const hex = (color) => color.replace('#', '').toUpperCase();
 const decode = (s) => s.replace(/&(?:#x([\da-f]+)|#(\d+)|(amp|lt|gt|quot|apos));/gi, (_, h, d, n) => h || d ? String.fromCodePoint(parseInt(h ?? d, h ? 16 : 10)) : ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" })[n]);
 
@@ -131,6 +213,56 @@ test('story: eight pages, page numbers, no warnings, and empty author metadata',
   assert.equal(textOf(one(await xml(zip, 'docProps/app.xml'), 'Company')), '');
 });
 
+test('所有版型、表格、原生圖與段落末尾都使用繁體中文換行語言', async () => {
+  const seen = new Set();
+  for (const { zip } of await Promise.all([storyDeck(), nativeDeck(), svgDeck()])) {
+    for (const name of files(zip, /^ppt\/.*\.xml$/)) {
+      const source = await zip.file(name).async('string');
+      assert.doesNotMatch(source, /\blang="en-US"/, name);
+      const root = parseXml(source);
+      for (const tag of ['a:rPr', 'a:defRPr', 'a:endParaRPr']) for (const props of nodes(root, tag)) {
+        seen.add(tag);
+        assert.equal(props.attrs.lang, 'zh-TW', `${name}: ${tag}`);
+      }
+      for (const lang of nodes(root, 'c:lang')) assert.equal(lang.attrs.val, 'zh-TW', name);
+    }
+  }
+  assert.deepEqual([...seen].sort(), ['a:defRPr', 'a:endParaRPr', 'a:rPr']);
+});
+
+test('所有版型的 claim 保留指定斷點並依行數配置標題高度', async () => {
+  const pages = example('story').pages.map((page) => ({ ...page, claim: '交接重新\n確認後開始', ...(page.type === 'statement' ? { focus: '重新\n確認' } : {}) }));
+  const single = pages.map((page) => ({ ...page, claim: '交接重新確認後開始', ...(page.type === 'statement' ? { focus: '重新確認' } : {}) }));
+  const a = await deck(pages), b = await deck(single);
+  for (const [i, page] of pages.entries()) {
+    const shape = async (zip) => nodes(await xml(zip, `ppt/slides/slide${i + 1}.xml`), 'p:sp')
+      .find((node) => textOf(node) === '交接重新確認後開始');
+    const multiline = await shape(a.zip), oneline = await shape(b.zip);
+    assert.ok(multiline && oneline, page.type);
+    assert.deepEqual(nodes(one(multiline, 'p:txBody'), 'a:p').map(textOf), ['交接重新', '確認後開始'], page.type);
+    const height = (node) => Number(one(one(node, 'a:xfrm'), 'a:ext').attrs.cy);
+    assert.equal(height(multiline), height(oneline) * 2, `${page.type}: 兩行高度`);
+    if (['cover', 'section', 'statement'].includes(page.type) && page.note) {
+      const note = nodes(await xml(a.zip, `ppt/slides/slide${i + 1}.xml`), 'p:sp').find((node) => textOf(node) === page.note);
+      const y = (node) => Number(one(one(node, 'a:xfrm'), 'a:off').attrs.y);
+      assert.ok(y(note) > y(multiline) + height(multiline), `${page.type}: 副標在標題下方`);
+    }
+  }
+});
+
+test('一句話頁的強調片段在斷點前後或跨行都不增加換行', async () => {
+  const claim = '交接重新\n確認後開始';
+  const focuses = [undefined, '重新', '確認', '重新\n確認', '交接重新\n', '\n確認'];
+  const { zip } = await deck(focuses.map((focus) => ({ type: 'statement', claim, focus })));
+  for (const [i, focus] of focuses.entries()) {
+    const shape = nodes(await xml(zip, `ppt/slides/slide${i + 1}.xml`), 'p:sp').find((node) => textOf(node) === claim.replaceAll('\n', ''));
+    assert.ok(shape);
+    assert.deepEqual(nodes(one(shape, 'p:txBody'), 'a:p').map(textOf), claim.split('\n'), focus);
+    const highlighted = nodes(shape, 'a:r').filter((r) => nodes(r, 'a:srgbClr').some((c) => c.attrs.val === hex(C.focus))).map(textOf).join('');
+    assert.equal(highlighted, (focus ?? '').replaceAll('\n', ''));
+  }
+});
+
 test('empty optional fields omit their text boxes, including source units', async () => {
   const page = { type: 'cover', kicker: '單位名稱', claim: '主張', note: '備註內容', sources: { source: '來源內容', unit: '數值單位', period: '資料期間' } };
   const full = await deck([page]);
@@ -213,7 +345,7 @@ test('rank: single series, reverse categories, external labels, one focus point 
 test('line: missing cache/workbook cells are absent and labels follow only tail/peak indices', async () => {
   const { zip } = await nativeDeck(), chart = await chartAt(zip, 2), series = nodes(chart.root, 'c:ser');
   const source = textOf(await xml(zip, 'ppt/slides/slide2.xml'));
-  assert.ok(source.includes('未提供：主線 三月、副線 四月'));
+  assert.ok(source.includes('未提供：主線／三月、副線／四月'));
   assert.equal(value(chart.root, 'c:dispBlanksAs'), 'gap');
   assert.equal(nodes(chart.root, 'c:legend').length, 0);
   for (let i = 0; i < series.length; i++) {

@@ -208,7 +208,7 @@ function series(spec, m, opts, tickCount) {
   if (cats?.folded.length) m.warnings.push(`沒有 focus 的系列超過 4 條，「${cats.folded.join('、')}」改用「其他」的灰`);
   if (spec.focus && !spec.series.some((s) => s.name === spec.focus)) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
   m.series = spec.series.map((s) => {
-    s.values.forEach((v, i) => v === null && m.missing.push(`${s.name} ${spec.x[i]}`));
+    s.values.forEach((v, i) => v === null && m.missing.push(`${s.name}／${spec.x[i]}`));
     const focus = spec.focus ? s.name === spec.focus : single;
     const color = cats ? cats.colors.get(s.name) ?? C.other : focus ? C.focus : C.gray;
     const last = s.values.findLastIndex(isNum);
@@ -498,7 +498,7 @@ KINDS.table = (spec, m) => {
   const cells = (row, name) => cols.map((c, j) => {
     const v = row[j];
     const align = c.type === 'text' ? 'start' : 'end';
-    if (v === null || v === undefined) return (m.missing.push(`${name} ${c.name}`), { text: '', align, value: null, color: C.text });
+    if (v === null || v === undefined) return (m.missing.push(`${name}／${c.name}`), { text: '', align, value: null, color: C.text });
     if (c.type === 'text') return { text: String(v), align, value: v, color: C.text };
     need(isNum(v), `table 的「${name} ${c.name}」不是數字`);
     if (c.type === 'delta') {

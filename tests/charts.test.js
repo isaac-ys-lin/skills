@@ -59,7 +59,7 @@ test('line: a missing point breaks the line and is listed', () => {
   const values = [3, 4, null, 6, 7];
   const { svg, model } = render({ kind: 'line', focus: 'A', x: ['1月', '2月', '3月', '4月', '5月'], series: [{ name: 'A', values }, { name: 'B', values: [1, 2, 3, 4, 5] }] });
   assert.equal(count(svg, new RegExp(`<path[^>]*stroke="${C.focus}"`, 'g')), 2);
-  assert.deepEqual(model.missing, ['A 3月']);
+  assert.deepEqual(model.missing, ['A／3月']);
 });
 
 test('slope: periods use two Ordered steps, deltas follow better', () => {
@@ -183,7 +183,7 @@ test('table: emphasis row tinted and bold, deltas colored, total ruled, missing 
   assert.ok(model.rows.at(-1).total);
   assert.ok(svg.includes(`font-size="${T.type.tableBody.px}"`) && svg.includes(`font-size="${T.type.tableHeader.px}"`));
   const gap = render({ kind: 'table', columns: [{ name: '區', type: 'text' }, { name: '量' }], rows: [['甲', null]] });
-  assert.deepEqual(gap.model.missing, ['甲 量']);
+  assert.deepEqual(gap.model.missing, ['甲／量']);
 });
 
 test('crowded heat column labels, untyped text columns, and unlabeled share segments', () => {
