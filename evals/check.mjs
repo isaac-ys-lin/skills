@@ -63,8 +63,8 @@ function visibleText(value, path) {
   if (typeof value === 'number' || typeof value === 'string') return [{ text: String(value), path }];
   if (Array.isArray(value)) return value.flatMap((v, i) => visibleText(v, `${path}[${i}]`));
   if (!value || typeof value !== 'object') return [];
-  // digits controls display precision; it is not a measured value or a visible label.
-  return Object.entries(value).flatMap(([key, v]) => key === 'digits' ? [] : visibleText(v, `${path}.${key}`));
+  // digits and numeric focus indices control rendering; neither is a visible measurement.
+  return Object.entries(value).flatMap(([key, v]) => key === 'digits' || key === 'focus' && typeof v === 'number' ? [] : visibleText(v, `${path}.${key}`));
 }
 
 export async function check(story, script) {
@@ -89,7 +89,7 @@ export async function check(story, script) {
     }
     const allowed = [...original, ...calculations(page, original, n)];
     const visible = [
-      ...['claim', 'kicker', 'note'].map((field) => [field, page[field]]),
+      ...['claim', 'kicker', 'lede', 'note'].map((field) => [field, page[field]]),
       ...['value', 'label', 'unit'].map((field) => [`metric.${field}`, page.metric?.[field]]),
       // period holds date ranges such as 2025.01–2025.12; dates are reviewed by hand, not as measured values.
       ...['source', 'unit', 'more'].map((field) => [`sources.${field}`, page.sources[field]]),

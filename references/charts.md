@@ -8,7 +8,7 @@
 - `digits`：顯示小數位數，預設 `0`；原始資料仍保留精度。
 - `better`：`higher` 或 `lower`，預設 `higher`；控制支援增減的圖表之增減標籤色，不改動正負號。
 - `unit`、`period`、`source`：獨立 SVG 的來源列。放進簡報後，每頁來源列改讀頁面的 `sources`，請另填 `sources.source`、`sources.unit`、`sources.period`。
-- 數值用 JSON 數字，缺值用 `null`，0 照常保留。缺值會自動列入證據頁來源列；文字稿沒有可畫數字時，選非圖表版型。
+- 數值用 JSON 數字，缺值用 `null`，0 照常保留。缺值會自動列入證據頁來源列；表格會在原格寫「未提供」，其他圖種依圖種留白、斷線或略去。若缺值本身是論證重點，改用能在原格標示的數字、比較或表格版型。文字稿沒有可畫數字時，選非圖表版型。
 - 原生：`rank`、`line`、`slope`、`share`、`scatter` 是 PowerPoint 圖表，`table` 是 PowerPoint 表格。其餘為 SVG，簡報內附 PNG 後備。原生圖可加 `native: false` 改用 SVG；極小非零值若會顯示成 0，也會自動改 SVG 並警告。
 - 同類別整份簡報維持同色。`share` 超過可用類別色數的類別會合併為「其他」；無 `focus` 的多系列 `line` 超出可用色數者改用灰色，但不合併資料。可用色數取 `categoryRules.maxCategorical` 與 `categorical` 長度的較小值；預設為四色。看警告與預覽再決定是否調整。
 
@@ -158,7 +158,7 @@ node scripts/png.js out/rank.svg out/rank.png
 用於精確讀值、不同單位並列，或來源只有分類文字而沒有可畫數字的情況。
 
 - 欄位：`columns: [{name, type?, digits?, suffix?, better?}]`、`rows: [[儲存格, ...], ...]`；選用 `total: [儲存格, ...]`、`emphasis`（首欄符合此值的列強調）。每列與 `total` 格數須等於欄數。
-- `type`：`text`、`number` 或 `delta`。省略時依內容推斷，明寫較容易核對；`number` 與 `delta` 儲存格須是數字或 `null`，`text` 可放文字或 `null`。任何型別的 `null` 都保留空白格，並自動以「列名／欄名」列入來源缺值說明，SVG 與原生表格相同。`delta` 只格式化已提供的差額，`total` 只顯示已提供的合計，都不代算。
+- `type`：`text`、`number` 或 `delta`。省略時依內容推斷，明寫較容易核對；`number` 與 `delta` 儲存格須是數字或 `null`，`text` 可放文字或 `null`。任何型別的 `null` 都在原格寫「未提供」，並自動以「列名／欄名」列入來源缺值說明，SVG 與原生表格相同。`delta` 只格式化已提供的差額，`total` 只顯示已提供的合計，都不代算。
 - 輸出：原生 PowerPoint 表格，直接編輯儲存格，沒有圖表活頁簿。
 - 常見錯誤：格數不一致；用加上千分位的字串填數值欄；以為 `total` 自動相加。純文字表格可用於無數字文字稿，但若只是比較方案，`compare` 通常更直接。
 - 最小範例：`{"kind":"table","columns":[{"name":"項目","type":"text"},{"name":"件數","type":"number"}],"rows":[["甲",12],["乙",8]]}`。完整檔：[examples/table.json](../examples/table.json)。

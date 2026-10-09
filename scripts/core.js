@@ -512,7 +512,7 @@ KINDS.table = (spec, m) => {
   const cells = (row, name) => cols.map((c, j) => {
     const v = row[j];
     const align = c.type === 'text' ? 'start' : 'end';
-    if (v === null || v === undefined) return (m.missing.push(`${name}／${c.name}`), { text: '', align, value: null, color: C.text });
+    if (v === null || v === undefined) return (m.missing.push(`${name}／${c.name}`), { text: '未提供', align, value: null, color: C.text });
     if (c.type === 'text') return { text: String(v), align, value: v, color: C.text };
     need(isNum(v), `table 的「${name} ${c.name}」不是數字`);
     if (c.type === 'delta') {
@@ -521,14 +521,14 @@ KINDS.table = (spec, m) => {
     }
     return { text: formatValue(v, { digits: c.digits, suffix: c.suffix }), align, value: v, color: C.text };
   });
-  m.rows = spec.rows.map((r) => {
+  m.rows = spec.rows.map((r, i) => {
     need(Array.isArray(r) && r.length === cols.length, `table 每一列要有 ${cols.length} 格`);
     const emphasis = r[0] === spec.emphasis;
-    return { cells: cells(r, String(r[0])), emphasis, total: false, fill: emphasis ? C.tint : null, bold: emphasis };
+    return { cells: cells(r, r[0] == null ? `第 ${i + 1} 列` : String(r[0])), emphasis, total: false, fill: emphasis ? C.tint : null, bold: emphasis };
   });
   if (spec.total) {
     need(Array.isArray(spec.total) && spec.total.length === cols.length, `table 的 total 要有 ${cols.length} 格`);
-    m.rows.push({ cells: cells(spec.total, String(spec.total[0])), emphasis: false, total: true, fill: null, bold: false });
+    m.rows.push({ cells: cells(spec.total, spec.total[0] == null ? '總計' : String(spec.total[0])), emphasis: false, total: true, fill: null, bold: false });
   }
   if (spec.emphasis && !m.rows.some((r) => r.emphasis)) m.warnings.push(`emphasis「${spec.emphasis}」不在資料裡`);
   return m;

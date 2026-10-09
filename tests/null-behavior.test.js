@@ -89,7 +89,7 @@ for (const spec of specs) test(`${spec.kind}：SVG 缺值行為與文件一致`,
       assert.ok(m.steps.every((s) => s.conversion === null), '不跨缺值步驟計算轉換率');
       break;
     case 'table':
-      assert.deepEqual(m.rows[1].cells.map((c) => c.text), ['缺值', '', '']);
+      assert.deepEqual(m.rows[1].cells.map((c) => c.text), ['缺值', '未提供', '未提供']);
       assert.deepEqual(m.missing, ['缺值／說明', '缺值／件數']);
       assert.ok(hasLabel(svg, '缺值'));
       break;
@@ -108,7 +108,7 @@ test('五種原生圖與原生表格保留相同缺值語意及來源列', async
     if (spec.kind === 'table') {
       const table = slide.match(/<a:tbl>[\s\S]*?<\/a:tbl>/)[0];
       const cells = [...table.matchAll(/<a:tc>([\s\S]*?)<\/a:tc>/g)].map((m) => [...m[1].matchAll(/<a:t>(.*?)<\/a:t>/g)].map((m) => m[1]).join(''));
-      assert.deepEqual(cells, ['項目', '說明', '件數', '有效', '已知', '8', '缺值', '', '']);
+      assert.deepEqual(cells, ['項目', '說明', '件數', '有效', '已知', '8', '缺值', '未提供', '未提供']);
       continue;
     }
     const chart = await zip.file(`ppt/charts/chart${++chartIndex}.xml`).async('string');

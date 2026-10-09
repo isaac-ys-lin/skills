@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import JSZip from 'jszip';
 import { build, validateStory } from '../scripts/pptx.js';
-import { T, C, SLIDE_FONT, prepare, textOn, decimalsOf } from '../scripts/core.js';
+import { T, C, SLIDE_FONT, prepare, textOn, decimalsOf, contrast } from '../scripts/core.js';
 
 const example = (kind) => JSON.parse(readFileSync(`examples/${kind}.json`, 'utf8'));
 
@@ -82,7 +82,7 @@ test('renderable numbers and comparison counts are warnings rather than blockers
   ]);
   assert.ok(buffer.length);
   assert.ok(warnings.some((w) => /第 1 頁.*2～4/.test(w)));
-  assert.ok(warnings.some((w) => /第 2 頁.*2～3/.test(w)));
+  assert.ok(warnings.some((w) => /第 2 頁.*2～4/.test(w)));
 });
 
 test('a numeric zero in an evidence metric remains visible', async () => {
@@ -302,6 +302,66 @@ test('numbers sit centered below one-line and two-line titles', async () => {
     assert.ok(top > title.y + title.h + T.margin.contentGap, 'tiles leave the content gap');
     assert.ok(Math.abs((top - (title.y + title.h + T.margin.contentGap)) - (end - bottom)) < 120, 'tiles are roughly centered');
     assert.ok(geometry(shapeText(root, '甲')).y < geometry(shapeText(root, '1')).y, 'label precedes its number');
+  }
+});
+
+test('dark closing lede uses a readable onDark color', async () => {
+  const { zip } = await deck([{ type: 'close', claim: '收尾', lede: '執行說明', visual: { rows: [{ task: '完成交接' }] } }]);
+  const lede = shapeText(await xml(zip, 'ppt/slides/slide1.xml'), '執行說明');
+  assert.equal(one(lede, 'a:srgbClr').attrs.val, hex(C.onDark[1]));
+  assert.ok(contrast(C.onDark[1], C.dark) >= 4.5);
+});
+
+test('columns, flow, and process content sits roughly centered below the lede', async () => {
+  const pages = [
+    { type: 'columns', claim: '結論', lede: '說明行', visual: { items: [{ kicker: '類別', heading: '資料', body: '資料說明' }, { heading: '作業', body: '作業說明' }] } },
+    { type: 'flow', claim: '結論', lede: '說明行', visual: { nodes: [{ heading: '起點' }, { heading: '終點' }], note: '補充說明' } },
+    { type: 'process', claim: '結論', lede: '說明行', visual: { steps: [{ heading: '收件', body: '完成收件' }, { heading: '登錄', body: '完成登錄' }, { heading: '交接', body: '完成交接' }] } },
+  ];
+  const { zip, warnings } = await deck(pages);
+  assert.deepEqual(warnings, []);
+  for (let i = 0; i < pages.length; i++) {
+    const root = await xml(zip, `ppt/slides/slide${i + 1}.xml`);
+    const lede = geometry(shapeText(root, '說明行'));
+    const start = lede.y + lede.h + T.margin.contentGap, end = sourceY(root) - T.margin.sourceGap;
+    let first, last;
+    if (i === 0) {
+      first = geometry(shapeText(root, '類別')).y;
+      const body = geometry(shapeText(root, '資料說明'));
+      last = body.y + body.h;
+    } else if (i === 1) {
+      const boxes = nodes(root, 'p:sp').filter((s) => shapeFill(s).some((c) => [hex(C.tint), hex(C.focus)].includes(c))).map(geometry);
+      assert.equal(boxes.length, 2);
+      first = Math.min(...boxes.map((b) => b.y));
+      const note = geometry(shapeText(root, '補充說明'));
+      last = note.y + note.h;
+    } else {
+      first = geometry(shapeText(root, '步驟 1')).y;
+      const body = geometry(shapeText(root, '完成交接'));
+      last = body.y + T.type.body.px * 1.45;
+    }
+    assert.ok(first > start, `${pages[i].type}: content follows lede`);
+    assert.ok(Math.abs((first - start) - (end - last)) < 120, `${pages[i].type}: content is roughly centered`);
+  }
+});
+
+test('oversized columns, flow, and process content starts at the top and warns', async () => {
+  const long = Array(18).fill('詳細內容').join('\n');
+  const pages = [
+    { type: 'columns', claim: '結論', visual: { items: [{ heading: '甲', body: long }, { heading: '乙' }] } },
+    { type: 'flow', claim: '結論', visual: { nodes: [{ heading: '甲', body: long }, { heading: '乙' }] } },
+    { type: 'process', claim: '結論', visual: { steps: [{ heading: '甲', body: long }, { heading: '乙' }, { heading: '丙' }] } },
+  ];
+  const { zip, warnings } = await deck(pages);
+  for (let i = 0; i < pages.length; i++) {
+    const root = await xml(zip, `ppt/slides/slide${i + 1}.xml`);
+    const title = geometry(shapeText(root, '結論'));
+    const start = title.y + title.h + T.margin.contentGap;
+    const first = i === 0 ? geometry(shapeText(root, '甲')).y - 28
+      : i === 1 ? Math.min(...nodes(root, 'p:sp').filter((s) => shapeFill(s).includes(hex(C.tint)) || shapeFill(s).includes(hex(C.focus))).map((s) => geometry(s).y))
+      : geometry(shapeText(root, '步驟 1')).y - 28;
+    assert.ok(Math.abs(first - start) < 1, `${pages[i].type}: content starts at top`);
+    assert.ok(warnings.some((w) => w.includes(`第 ${i + 1} 頁`) && w.includes('高度不足')), `${pages[i].type}: overflow warns`);
   }
 });
 

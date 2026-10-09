@@ -77,18 +77,23 @@
     }
   },
   "layoutFields": {
-    "fields": ["kicker", "claim", "note", "visual", "sources"],
+    "fields": ["kicker", "claim", "lede", "note", "visual", "sources"],
     "emptyField": "omitCell",
     "layouts": {
       "cover": ["kicker", "claim", "note", "sources"],
-      "summary": ["kicker", "claim", "visual", "sources"],
+      "summary": ["kicker", "claim", "lede", "visual", "sources"],
       "section": ["kicker", "claim", "note", "sources"],
-      "statement": ["kicker", "claim", "note", "sources"],
-      "evidence": ["kicker", "claim", "visual", "note", "sources"],
-      "numbers": ["kicker", "claim", "visual", "sources"],
-      "compare": ["kicker", "claim", "visual", "sources"],
-      "steps": ["kicker", "claim", "visual", "sources"],
-      "close": ["kicker", "claim", "visual", "sources"]
+      "statement": ["kicker", "claim", "lede", "note", "sources"],
+      "evidence": ["kicker", "claim", "lede", "visual", "note", "sources"],
+      "numbers": ["kicker", "claim", "lede", "visual", "sources"],
+      "compare": ["kicker", "claim", "lede", "visual", "sources"],
+      "steps": ["kicker", "claim", "lede", "visual", "sources"],
+      "close": ["kicker", "claim", "lede", "visual", "sources"],
+      "list": ["kicker", "claim", "lede", "visual", "sources"],
+      "process": ["kicker", "claim", "lede", "visual", "sources"],
+      "kpi": ["kicker", "claim", "lede", "visual", "sources"],
+      "flow": ["kicker", "claim", "lede", "visual", "sources"],
+      "columns": ["kicker", "claim", "lede", "visual", "sources"]
     }
   },
   "export": {

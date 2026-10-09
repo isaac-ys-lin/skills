@@ -1,194 +1,68 @@
-# 版型：讓每頁的一句判斷決定畫面
+# 版型：先寫判斷，再選畫面
 
-版型是元件庫，不是要依序填滿的表單。先寫每頁 `claim`，再選最能支持它的版型；不必湊齊九種，也不必固定頁數。來源是文字稿，範例只提供結構。
+每個版型自帶一個主張。先寫每頁 `claim`，再選能支撐它的版型；稿子撐不起主張時換版型。版型是工具箱，不必湊齊，也不必固定頁數。決策型範例見 [story.json](../examples/story.json)，說明型範例見 [story-explain.json](../examples/story-explain.json)。
 
 ## 整份簡報與共通欄位
 
-根物件包含 `title`（簡報名稱）、`date`（封面右上日期文字）、`author`（檔案作者，可空白）、`pages`（依播放順序排列的頁面陣列）。文字稿沒有日期時省略根層 `date`，封面就不顯示日期。每頁寫 `type`、一句 `claim` 與 `sources.source`；有證據或行動內容時再填對應的 `visual`。
+根物件有 `title`、選用的 `date`、`author` 和依播放順序排列的 `pages`。沒有日期就省略 `date`，封面不顯示日期。每頁填 `type`、一句 `claim` 與 `sources.source`；有內容才填該版型的選用欄位。
 
 | 欄位 | 用法 |
 | --- | --- |
-| `type` | `cover`、`summary`、`section`、`statement`、`evidence`、`numbers`、`compare`、`steps`、`close` 之一。 |
-| `kicker` | 頁首章節名；封面改作單位名稱。章節尺標由所有非封面頁的 `kicker` 按首次出現去重。 |
-| `claim` | 一句可被內容支持的判斷。所有版型的長標題都可用 `\n` 指定斷點，行數估算會照斷點計算並保留標題高度。避免只寫「背景」或「分析結果」。 |
-| `note` | 畫面上的副標或補充，只在 `cover`、`section`、`statement`、`evidence` 使用。 |
-| `visual` | 按版型使用不同結構。證據頁放圖表 spec，其餘版型使用下表結構。 |
-| `sources` | 每頁來源列：`source`（來源名稱）、選用 `unit`、`period`、`more`（字串陣列，放口徑、算法或缺口）。只知道「使用者提供的提案」就據實寫它。 |
-| `notes` | 講稿字串或字串陣列，寫進 PowerPoint 講者備註；不在投影片畫面顯示。可交代數字算法與推論限制。 |
+| `kicker` | 頁首主題；封面作單位名稱。章節尺標按非封面頁的 `kicker` 首次出現順序去重。 |
+| `claim` | 可由內容支持的結論。長標題可用 `\n` 指定斷點；不要只寫「背景」或「分析結果」。 |
+| `lede` | 封面、章節以外的內容頁選填，一行小字放在標題下、內容上，交代「指標・範圍・期間・單位」。省略時不佔高度。 |
+| `note` | 畫面上的補充，適用於 `cover`、`section`、`statement`、`evidence`。 |
+| `visual` | 依版型放圖表或結構化內容；欄位見下表。 |
+| `sources` | 每頁來源列：`source` 必填；已知時填 `unit`、`period`；`more` 是口徑、算法或缺口的字串陣列。 |
+| `notes` | 講者備註，可為字串或字串陣列，不在畫面顯示。 |
 
-`note` 是畫面補充，`notes` 是講稿，兩者用途不同。頁面選用欄位空著時整格不出現：省略 `note`、`metric`、`sources.unit` 等欄位即可，不填空白卡片或無意義佔位字。保留必要的 `claim` 與來源列。資料表或圖表中的 `null` 表示缺值；依圖種可能略去整列、留空格或斷線，不能假定分類仍會畫出。各圖行為見 [圖表欄位說明](charts.md)，缺口會自動列入來源列。
+`note` 是畫面補充，`notes` 是講稿。選填格若稿子沒有提及，省略整格；不要填空白卡片或佔位字。論證需要、讀者會以為有的數字若未提供，數字格或比較格用 `null` 保留位置，畫面標「未提供」並列入來源列；`0` 是有效觀察值。證據頁的 `table` 圖種也在缺值格原位標「未提供」。其他圖表的 `null` 可能留白、斷線或略去圖元，依[圖表選單](charts.md)處理並列入來源列；若缺值位置本身是論證重點，改用能在原位標示的數字、比較或表格版型。來源列建議兩行內，超出會警告而不縮字。圖表 `visual.source` 不能代替頁面的 `sources.source`。
 
-圖表缺值與數字格的 `value: null` 會自動加上「未提供：項目」；其他版型的缺漏與未定事項，請自行寫入 `sources.more`。來源列建議維持兩行，超過會警告且不縮字。`visual.source` 不會代替頁面的 `sources.source`。
+## 版型與各自的主張
 
-## 九種版型
+下表容量是畫面建議；超出會警告，應看圖後刪內容或拆頁。所有版型都接受 `notes`，所有內容頁都可填 `lede`。
 
-| 版型 | 什麼時候用 | 版面欄位與實作補充 | 容量與限制 |
-| --- | --- | --- | --- |
-| 封面 `cover` | 建立主張、對象與範圍。 | `kicker`、`claim`、`note`、`sources`；日期讀根層 `date`。 | 深色底；主標可用 `\n` 分兩行，副標以一行為宜。 |
-| 主管摘要 `summary` | 先交代建議與支撐決策的關鍵數字。 | `kicker`、`claim`、`visual.lead`、選用 `visual.body`、`visual.items`、`sources`。 | 左欄一行粗體建議與二至三行說明；右欄直排二至三個數字，每項可加一行 `note`。超出容量會警告。 |
-| 章節 `section` | 故事進入新的問題，讓觀眾知道位置。 | `kicker`、`claim`、`note`、`sources`；尺標依全份簡報的章節名產生。 | 淡色底；目前章節以 `kicker` 對應尺標，不把章節清單放進 `visual`。 |
-| 一句話 `statement` | 需要觀眾先記住一個判斷，或沒有數字可畫。 | `kicker`、`claim`、`note`、`sources`；選用 `focus` 指定 `claim` 內一段原文。 | 只強調第一個相符片段；找不到 `focus` 會警告。補充要短。 |
-| 證據 `evidence` | 用一張圖或表支持標題。 | `kicker`、`claim`、`visual`、`note`、`sources`；選用 `metric: {label?, value, unit?}`。 | `visual` 是 [圖表 spec](charts.md)。有 `note` 或 `metric` 時保留右側結論欄；兩者都省略時圖表放寬。一頁一張主圖。 |
-| 數字 `numbers` | 並列少數關鍵指標及增減。 | `kicker`、`claim`、`visual.items`、`sources`。 | 由標題下方的內容起點向下排，建議二至四格；超出範圍會警告。過長數字可能縮字並警告，仍須看圖。 |
-| 比較 `compare` | 在同一組條件下比較方案並提出建議。 | `kicker`、`claim`、`visual.rows`、`visual.options`、`sources`。 | 建議二至三個方案；方案數量與文字密度以預覽判斷。每個方案的 `values` 與列名逐格對應。 |
-| 步驟 `steps` | 已知月份起迄的分階段時程。 | `kicker`、`claim`、`visual.start`、`visual.end`、`visual.phases`、`sources`。 | 日期必須是 `YYYY-MM`，各階段落在整體時程內；適合少數階段，列高不足會警告。 |
-| 收尾 `close` | 明確交代接下來做什麼、誰負責、何時完成。 | `kicker`、`claim`、`visual.rows`、`sources`。 | 與封面同色的深色底，任務粗體淺色字、負責人與期限靠右淡色，列間細線；全欄未提供的負責人或期限會省略。文字放不下會警告。 |
+| 版型 | 自帶的主張 | `visual` 與容量 |
+| --- | --- | --- |
+| 封面 `cover` | 這份簡報要談的問題與方向。 | 無；用 `kicker`、`claim`、`note`，日期讀根層 `date`。主標可用 `\n` 分行。 |
+| 主管摘要 `summary` | 建議這樣做，關鍵數字支持它。 | `{lead, body?, items}`；左欄一行建議和至多三行理由，右欄建議 2～3 個數字格。 |
+| 章節 `section` | 接下來處理這個問題。 | 無；用 `kicker`、`claim`、`note`。 |
+| 一句話 `statement` | 先記住這個判斷。 | 無；選用頁面 `focus` 指定 `claim` 中的原文，找不到會警告。 |
+| 證據 `evidence` | 這張圖或表支持標題判斷。 | 一張[圖表](charts.md)；選用頁面 `metric: {label?, value, unit?}` 和 `note` 作右側結論欄。 |
+| 數字 `numbers` | 這幾個指標一起說明狀態。 | `items: [{label, value, unit?, ...}]`；建議 2～4 格，過長數字與高度會警告。 |
+| 診斷清單 `list` | 這幾件事有先後，先處理這個。 | `items` 3～5 項；`focus` 選一項，列間細線。 |
+| 無日期流程 `process` | 事情照這個順序走，現在在這一步。 | `steps` 3～6 步；`focus` 標目前步驟，超出欄寬會警告。 |
+| 核心數字 `kpi` | 這一個數字最重要。 | `main` 含 1～3 個 `benchmarks`，`secondary` 0～4 個。 |
+| 因果 `flow` | A 加 B 造成 C，所以做 D。 | `nodes` 2～5 個，`connectors` 連接相鄰方框；預設強調最後一框。 |
+| 並列重點 `columns` | 這幾件事並列，不分先後。 | `items` 2～4 欄，選用 `focus` 強調一欄。 |
+| 方案比較 `compare` | 在同一組條件下，這個方案較適合。 | `rows` 列名及 `options` 2～4 個方案；每個 `values` 與列名逐格對應。超出 2～4 個才警告。 |
+| 月份時程 `steps` | 已知的工作照這段月份安排。 | `start`、`end`、`phases`；日期必須是 `YYYY-MM`，列高不足會警告。 |
+| 決議事項 `close` | 下一步由誰做什麼、何時完成。 | `rows: [{task, owner?, due?}]`；列高不足會警告。 |
 
-所有版型都接受 `notes`。數字格、方案、階段、行動列中的全空物件會整格略去；每個主視覺仍需至少一筆有內容的資料。表中的二至四格、二至三方案是視覺容量建議，警告用來提示看圖，不是要求把真實內容硬湊成指定數量。
+### 摘要、數字與核心數字
 
-表格（原生與 SVG）、比較頁及收尾頁會依可用高度平均放大資料列，最多為原列高的 1.8 倍，字級不變；列多時沿用原有配置。
+`summary.visual` 為 `{lead, body?, items}`；`lead` 必填，`body` 選填，`items` 使用 `numbers` 的數字格結構並可加一行 `note`。右欄每項顯示數字、標籤與補充，列間用細線。若沒有支撐建議的數字，改用 `process` 或 `columns`。
 
-### 主管摘要的 `visual`
+`numbers.visual.items` 的每項是 `{label, value, unit?, prev?, mode?, digits?, better?, deltaSuffix?}`。`value` 可為數字、顯示字串或 `null`；數字依 `digits` 格式化。四格時使用設計層較小的固定數字字級，過長仍警告而不自動縮字。數字搭 `prev` 時可算增減，須明寫 `better: "higher"` 或 `"lower"`；`mode` 預設 `abs`（差額），另有 `pct`（相對百分比）、`pp`（百分點）。前期為 0 時改用差額；字串值不計算增減。
 
-`{lead, body?, items}`。`lead` 必填，寫一行建議；`body` 選填，以二至三行說明理由。`items` 使用下方數字格的相同結構，另可加 `note` 作一行說明。右欄每項依序顯示大數字與單位、粗體短標籤、說明，項目間用細線分隔。建議二至三項，項目數、建議、說明或數字超出容量時會警告；文字仍需逐頁驗收。
+`kpi.visual` 為 `{main: {label, value, unit?, digits?, benchmarks: [{label, value, unit?, digits?}]}, secondary?: [{label, value, unit?, digits?}]}`。主數字在左，1～3 個對照逐列置於下方，右側直排 0～4 個次要指標。每個 `value` 可為數字或顯示字串，數字依該項的 `digits` 格式化；論證必要但缺值時可用 `null`，畫面標「未提供」並列入來源列。
 
-### 數字格的 `visual`
+### 診斷、無日期流程、因果與並列
 
-```json
-{
-  "items": [
-    { "label": "完成件數", "value": 80, "unit": "件", "prev": 60, "mode": "abs", "digits": 0, "better": "higher", "deltaSuffix": " 件" },
-    { "label": "平均等待", "value": 2.5, "unit": "天", "prev": 3.5, "digits": 1, "better": "lower", "deltaSuffix": " 天" }
-  ]
-}
-```
+`list.visual` 為 `{items: [{tag?, heading, body?, note?}], focus?}`。`items` 建議 3～5 項：左欄短標 `tag`、中欄粗體 `heading` 與一行 `body`、右欄一行小字 `note`；列間細線。`focus` 是從 0 起算的項目索引，只讓該列 `tag` 與 `heading` 用重點色。選填文字沒有內容就省略該格。
 
-`value` 是數字時可搭 `prev` 算增減；有前期值時明寫 `better: "higher"` 或 `"lower"`。`mode` 預設 `abs`（差額），`pct` 是相對前期的百分比，`pp` 是兩個百分數的百分點差。前期為 0 時自動改差額。`digits` 控制顯示精度，`deltaSuffix` 只作用於差額尾碼。`value` 也可直接是顯示字串，此時不計算增減。缺值保留 `null`，來源列會自動列明未提供的指標；0 仍是有效觀察值。
+`process.visual` 為 `{steps: [{label?, heading, body?}], focus?}`。`steps` 建議 3～6 步，從左到右以細線串起圓點；上方小字 `label` 省略時顯示「步驟 1」等，下方放粗體 `heading` 和 `body`。`focus` 是從 0 起算的目前步驟索引，該步圓點與文字用重點色。已有月份的時程使用 `steps` 版型。
 
-### 比較頁的 `visual`
+`flow.visual` 為 `{nodes: [{label?, heading, body?}], connectors?, focus?, note?}`。`nodes` 建議 2～5 個方框，由左到右閱讀；`connectors` 是長度比方框少一的符號陣列，每段預設「→」，可用「＋」或「＝」。`focus` 是從 0 起算的方框索引，預設最後一個，該框填滿重點色並使用設計層對應文字色。`note` 是方框下一行補充；節點選填格省略時不留佔位。
 
-`rows` 是列名陣列。`options` 的每項為 `{name, subtitle?, values, recommended?}`，`values` 是與列名等長的文字或數字陣列，缺值用 `null`；`recommended: true` 的欄頭使用實心 focus 色塊，方案名、副標與「建議」為白字，下方各格使用表格強調列的淡色底。未指定建議方案時維持一般欄位外觀。數字若寫在文字裡仍需來自來源。未知資料格填 `null` 保留對應位置，並在 `sources.more` 交代。
+`columns.visual` 為 `{items: [{kicker?, value?, unit?, digits?, heading, body?}], focus?}`。`items` 建議 2～4 欄：每欄上緣細線、小字 `kicker`、可選大數字 `value`、粗體 `heading` 與 `body`。`value` 是數字時依 `digits` 格式化；`focus` 是從 0 起算的欄索引，省略時各欄同重。
 
-### 步驟頁的 `visual`
+### 方案、月份與行動
 
-`{start: "YYYY-MM", end: "YYYY-MM", phases: [{name, note?, from: "YYYY-MM", to: "YYYY-MM"}]}`。起訖月都計入長條。日期來自文字稿，不能為了使用時間軸而補造。沒有日期的純流程可用 `statement` 說明判斷、`compare` 呈現各階段的同一組資訊，或 `close` 列出後續工作；步驟先後寫入文字即可。
+`compare.visual.rows` 是比較項目字串陣列；`options` 每項為 `{name, subtitle?, values, recommended?}`。`values` 長度等於 `rows`，文字或數字逐格對應，缺少論證必要的比較值用 `null`，該格顯示「未提供」並進來源列。`recommended: true` 的欄頭填重點色；省略時方案同重。4 個方案仍需檢查文字是否放得下。
 
-### 收尾頁的 `visual`
+`steps.visual` 為 `{start: "YYYY-MM", end: "YYYY-MM", phases: [{name, note?, from: "YYYY-MM", to: "YYYY-MM"}]}`。起訖月都計入長條；每階段須在整體時程內。沒有來源日期就改用 `process`。
 
-`{rows: [{task, owner?, due?}]}`。`due` 是顯示文字，可放來源提供的日期或相對時點，不會被轉成日期軸。期限欄以約 6 個中文字內為宜；較長的期限改寫成原稿支持的條件（例如「試走後」），或移到講稿 `notes`。未知的負責人與期限留空，在 `sources.more` 寫明未提供。
+`close.visual` 為 `{rows: [{task, owner?, due?}]}`。`due` 是顯示文字，可放來源提供的日期或相對時點，不轉成日期軸。若稿子未提負責人或期限，整欄可省略；若責任歸屬是決策必需的缺口，在 `sources.more` 寫明。收尾若不需要決定，改用 `list`。
 
-## 完整 story.json 結構範例
-
-下面可直接存為 `story.json` 後建檔。這是虛構圖書館的 API 示意，涵蓋九種版型；實際故事只挑需要的頁。更完整的現有資料範例在 [examples/story.json](../examples/story.json)。
-
-```json
-{
-  "title": "青嶼圖書館預約流程改善",
-  "date": "2026 年 3 月",
-  "author": "",
-  "pages": [
-    {
-      "type": "cover",
-      "kicker": "青嶼圖書館",
-      "claim": "預約流程改善\n從確認通知開始",
-      "note": "先處理交接資訊，再檢查等待時間",
-      "sources": { "source": "虛構示意提案" },
-      "notes": "說明提案範圍與本次需要確認的決定。"
-    },
-    {
-      "type": "summary",
-      "kicker": "主管摘要",
-      "claim": "先統一確認通知，追蹤件數與等待時間",
-      "visual": {
-        "lead": "先試行統一確認通知",
-        "body": "讓狀態與負責窗口保持一致。\n以件數與等待時間追蹤試行結果。",
-        "items": [
-          { "label": "東館完成件數", "value": 80, "unit": "件", "note": "用來追蹤服務量" },
-          { "label": "東館平均等待", "value": 2.5, "unit": "天", "digits": 1, "note": "用來追蹤處理時間" }
-        ]
-      },
-      "sources": { "source": "虛構示意紀錄與提案", "period": "2026 年 2 月" }
-    },
-    {
-      "type": "section",
-      "kicker": "現況",
-      "claim": "現況顯示交接需要改善",
-      "note": "先確認問題，再選做法",
-      "sources": { "source": "虛構示意提案" }
-    },
-    {
-      "type": "statement",
-      "kicker": "現況",
-      "claim": "先統一確認通知，讓交接資訊完整",
-      "focus": "統一確認通知",
-      "note": "把狀態與負責窗口寫在同一則訊息裡。",
-      "sources": { "source": "虛構示意訪談" }
-    },
-    {
-      "type": "evidence",
-      "kicker": "現況",
-      "claim": "東館完成預約件數高於西館",
-      "visual": {
-        "kind": "rank",
-        "focus": "東館",
-        "rows": [
-          { "label": "東館", "value": 80 },
-          { "label": "西館", "value": 60 }
-        ]
-      },
-      "metric": { "label": "件數差距", "value": "20", "unit": "件" },
-      "note": "件數差異不能單獨證明服務效率差異。",
-      "sources": { "source": "虛構示意紀錄", "unit": "件", "period": "2026 年 2 月" },
-      "notes": "件數差距算法：80 - 60 = 20；尚未比較兩館需求量。"
-    },
-    {
-      "type": "numbers",
-      "kicker": "現況",
-      "claim": "完成件數增加，平均等待縮短",
-      "visual": {
-        "items": [
-          { "label": "東館完成件數", "value": 80, "unit": "件", "prev": 60, "better": "higher", "deltaSuffix": " 件" },
-          { "label": "東館平均等待", "value": 2.5, "unit": "天", "prev": 3.5, "digits": 1, "better": "lower", "deltaSuffix": " 天" }
-        ]
-      },
-      "sources": { "source": "虛構示意紀錄", "period": "2026 年 2 月", "more": ["增減對比同年 1 月"] }
-    },
-    {
-      "type": "compare",
-      "kicker": "行動",
-      "claim": "先試行統一通知，較容易維持窗口一致",
-      "visual": {
-        "rows": ["做法", "主要風險"],
-        "options": [
-          { "name": "分館各自通知", "values": ["各館維護通知內容", "資訊格式可能不同"] },
-          { "name": "統一通知", "subtitle": "共用通知內容", "values": ["同一窗口整理狀態", "需維護共用內容"], "recommended": true }
-        ]
-      },
-      "sources": { "source": "虛構示意提案" },
-      "notes": "推薦理由是交接一致性，仍需確認各館是否有特殊情境。"
-    },
-    {
-      "type": "steps",
-      "kicker": "行動",
-      "claim": "先試行再檢討，逐階段確認通知內容",
-      "visual": {
-        "start": "2026-04",
-        "end": "2026-06",
-        "phases": [
-          { "name": "整理共用通知", "note": "確認窗口", "from": "2026-04", "to": "2026-04" },
-          { "name": "分館試行與檢討", "from": "2026-05", "to": "2026-06" }
-        ]
-      },
-      "sources": { "source": "虛構示意時程", "unit": "月", "period": "2026 年 4 至 6 月" }
-    },
-    {
-      "type": "close",
-      "kicker": "行動",
-      "claim": "先確認共用通知內容，再啟動試行",
-      "visual": {
-        "rows": [
-          { "task": "確認通知內容", "owner": "服務組", "due": "試行前" },
-          { "task": "彙整試行回饋", "owner": "分館窗口", "due": "試行結束後" }
-        ]
-      },
-      "sources": { "source": "虛構示意提案" }
-    }
-  ]
-}
-```
-
-```sh
-node scripts/pptx.js story.json deck.pptx
-```
-
-輸出警告表示要看圖判斷：先查標籤、文字密度、來源列、資料口徑與缺值，再改最弱的一頁。建檔成功證明檔案能產生；字級、重疊、圖文關係與故事是否成立，仍須由預覽逐頁驗收。
+表格、比較頁及收尾頁會依可用高度調整資料列，字級不變。若文字仍放不下，刪內容或拆頁。建檔成功只證明檔案能產生；字級、重疊、圖文關係與故事是否成立，仍須逐頁預覽驗收。

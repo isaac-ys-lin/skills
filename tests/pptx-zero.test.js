@@ -16,12 +16,13 @@ test('compare renders the supplied numeric zero in PPTX XML', async () => {
   assert.deepEqual(text, ['稿', '資料來源：稿', '1 / 1', '甲', '值', '0']);
 });
 
-test('compare leaves only null and empty string cells blank', async () => {
+test('compare shows explicit null as missing and leaves empty strings blank', async () => {
   const text = await slideText(story('compare', {
     rows: ['零', '負零', '文字零', '正值', '負值', '缺值', '空字串'],
     options: [{ name: '甲', values: [0, -0, '0', 1, -1, null, ''] }],
   }));
-  assert.deepEqual(text.slice(4), ['零', '0', '負零', '0', '文字零', '0', '正值', '1', '負值', '-1', '缺值', '空字串']);
+  assert.ok(text.includes('未提供：甲／缺值'));
+  assert.deepEqual(text.slice(5), ['零', '0', '負零', '0', '文字零', '0', '正值', '1', '負值', '−1', '缺值', '未提供', '空字串']);
 });
 
 test('numbers keeps zero visible and distinguishes it from a missing value', async () => {
