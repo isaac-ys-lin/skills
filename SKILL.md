@@ -1,11 +1,11 @@
 ---
 name: clayprint
-description: "Clayprint 將使用者提供的文字稿做成有故事線的簡報／PowerPoint：先寫每頁判斷，再挑版型與主視覺，輸出可編輯的原生圖表或 SVG。適用於從文字稿製作新簡報。"
+description: "Clayprint 把文字稿做成簡報／PowerPoint 或連續閱讀的 HTML 報告，也把既有 PowerPoint、Word、Excel、HTML 套用 Clayprint 樣式。適用於內容視覺化；不適用於軟體或架構藍圖、只要大綱、圖片提示詞簡報。"
 ---
 
 # Clayprint
 
-把使用者的文字稿整理成 16:9 PowerPoint。交付簡報、對應的 `story.json`、驗證結果與交付說明；以原稿為內容依據。
+把文字稿整理成簡報或 HTML 報告，也能將既有檔案套用設計層；以原稿和原檔為內容依據。
 
 ## 原則
 
@@ -42,3 +42,15 @@ description: "Clayprint 將使用者提供的文字稿做成有故事線的簡�
 ## 設計層與驗證
 
 預設 clay 設計層；切換 B′ 深藍範例與檢查自訂配色見 [設計層說明](design/README.md)。逐頁檢查判斷、數字、單位、期間、來源、缺值、遮擋與閱讀順序。驗收器通過只證明結構、數字對照和程式可建檔；獨立驗收見 [有數字稿](evals/with-numbers.md)與[無數字稿](evals/without-numbers.md)。
+
+## 文字稿 → 報告
+
+讀者要連續閱讀、轉寄或列印時，依 [報告流程](references/report.md)從元件庫組成 HTML。
+先寫讀者要帶走的一句話與每節判斷；有資料才加圖，圖說交代單位、期間與來源。
+使用 `node scripts/theme-css.js report.html` 套用生效的設計層，再用 `node evals/check-report.mjs report.html script.md` 核對。
+
+## 套用到既有檔案
+
+先讀 [格式與保留原則](references/formats.md)，在副本上只換目標圖表或圖片。
+Office 檔可用 `node scripts/extract.js 原檔 out.json` 擷取文字、表格與可讀的圖表快取。
+交付時說明修改範圍、數據來源、讀不到的部分與實際預覽方式。

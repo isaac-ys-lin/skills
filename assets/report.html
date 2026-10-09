@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{報告標題}}</title>
+  <style id="clayprint-theme">
+:root {
+  --cp-paper: #FAF9F5;
+  --cp-ink: #141413;
+  --cp-muted: #5E5D59;
+  --cp-title: #141413;
+  --cp-line: #E8E6DC;
+  --cp-accent: #C2553A;
+  --cp-tint: #F5E6DE;
+  --cp-soft: #B0AEA5;
+  --cp-font: "Helvetica Neue", "Segoe UI", "Arial", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --cp-body: 16px;
+  --cp-small: 12px;
+  --cp-sub: 18px;
+  --cp-title-size: 28px;
+  --cp-display: 52px;
+}
+* { box-sizing: border-box; }
+html { color: var(--cp-ink); background: var(--cp-paper); font-family: var(--cp-font); font-size: var(--cp-body); line-height: 1.65; }
+body { margin: 0 auto; padding: 0 24px 72px; max-width: 940px; overflow-wrap: anywhere; }
+main, article, section { min-width: 0; }
+h1, h2, h3, p { margin-top: 0; }
+h1, h2, h3 { color: var(--cp-title); line-height: 1.25; }
+h1 { font-size: clamp(32px, 7vw, var(--cp-display)); letter-spacing: -.035em; }
+h2 { font-size: var(--cp-title-size); letter-spacing: -.02em; }
+h3 { font-size: var(--cp-sub); }
+p, li { max-width: 72ch; }
+a { color: var(--cp-accent); text-underline-offset: .16em; }
+.report-cover { padding: 72px 0 64px; border-bottom: 3px solid var(--cp-accent); }
+.eyebrow { color: var(--cp-accent); font-size: var(--cp-small); font-weight: 700; letter-spacing: .08em; }
+.report-cover > p:not(:first-child) { font-size: var(--cp-sub); }
+.cover-meta { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 40px; color: var(--cp-muted); font-size: var(--cp-small); }
+.cover-meta dt { font-weight: 700; }
+.cover-meta dd, .summary-metrics dd { margin: 0; }
+.toc, section { margin-top: 52px; }
+.toc ol { padding-left: 1.4em; }
+.toc li { border-bottom: 1px solid var(--cp-line); padding: 7px 0; }
+.summary { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 28px; padding: 30px; background: var(--cp-tint); }
+.summary h2 { margin-bottom: 12px; }
+.summary-metrics { display: grid; gap: 12px; align-content: center; }
+.summary-metrics dt { color: var(--cp-muted); font-size: var(--cp-small); }
+.summary-metrics dd { color: var(--cp-accent); font-size: var(--cp-title-size); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.section-heading { margin-bottom: 22px; border-top: 1px solid var(--cp-line); padding-top: 24px; }
+.section-heading > p:last-child { color: var(--cp-muted); }
+.callout { margin: 28px 0; padding: 20px 24px; background: var(--cp-tint); }
+figure { margin: 32px 0; }
+figure svg { display: block; width: 100%; height: auto; max-width: 100%; }
+.chart-scroll { max-width: 100%; overflow-x: auto; }
+figcaption, .sources { margin-top: 10px; color: var(--cp-muted); font-size: var(--cp-small); line-height: 1.5; }
+.chart-focus { fill: var(--cp-accent); stroke: var(--cp-accent); }
+.chart-muted { fill: var(--cp-soft); stroke: var(--cp-soft); }
+.chart-grid { stroke: var(--cp-line); }
+.chart-text { fill: var(--cp-ink); }
+.chart-subtle { fill: var(--cp-muted); }
+.table-scroll { max-width: 100%; overflow-x: auto; box-shadow: inset -12px 0 10px -12px var(--cp-accent); }
+table { width: 100%; border-collapse: collapse; text-align: left; font-variant-numeric: tabular-nums; }
+caption { text-align: left; }
+th, td { padding: 11px 14px; border-bottom: 1px solid var(--cp-line); vertical-align: top; }
+thead th { border-bottom: 2px solid var(--cp-ink); font-size: var(--cp-small); }
+.num, td[data-type="number"], th[data-type="number"] { text-align: right; white-space: nowrap; }
+tr.emphasis, tr.total { font-weight: 700; background: var(--cp-tint); }
+.comparison .recommended { background: var(--cp-tint); }
+.diagnosis, .flow { padding-left: 1.4em; }
+.diagnosis li, .flow li { padding: 9px 0; border-bottom: 1px solid var(--cp-line); }
+.flow li::marker { color: var(--cp-accent); font-weight: 700; }
+.missing { display: inline-block; padding: 0 .4em; border: 1px solid var(--cp-muted); color: var(--cp-muted); font-size: var(--cp-small); }
+@media (max-width: 640px) {
+  body { padding: 0 18px 44px; }
+  .report-cover { padding: 48px 0 42px; }
+  .summary { grid-template-columns: 1fr; padding: 20px; }
+  .summary-metrics { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+  .chart-scroll svg { min-width: 640px; max-width: none; }
+}
+@page { size: A4; margin: 18mm 19mm; }
+@media print {
+  html { background: var(--cp-paper); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  body { max-width: none; padding: 0; }
+  .report-cover { break-after: page; }
+  .section-heading { break-after: avoid; }
+  /* A short section stays on one page so its heading never sits alone; Chrome breaks sections taller than a page anyway. */
+  section { break-inside: avoid; }
+  figure, .callout, .summary, .table-scroll, .comparison, .diagnosis, .flow, .decisions { break-inside: avoid; }
+  tr { break-inside: avoid; }
+  .chart-scroll, .table-scroll { overflow: visible; box-shadow: none; }
+  .chart-scroll svg { min-width: 0; max-width: 100%; }
+  .sources { break-before: avoid; }
+  a { color: inherit; }
+}
+</style>
+</head>
+<body>
+<main class="report">
+  <!-- 元件庫：依內容複製需要的區塊；沒有內容就刪除整個元件，不留空框或佔位。 -->
+
+  <!-- 封面：用於交代報告主題、讀者應記住的一句話與最多三項背景資訊。 -->
+  <header class="report-cover">
+    <p class="eyebrow">{{頁首小字}}</p>
+    <h1>{{報告標題}}</h1>
+    <p class="cover-message">{{讀者要帶走的一句主訊息}}</p>
+    <dl class="cover-meta">
+      <div><dt>{{資訊名稱}}</dt><dd>{{資訊內容}}</dd></div>
+      <div><dt>{{資訊名稱}}</dt><dd>{{資訊內容}}</dd></div>
+      <div><dt>{{資訊名稱}}</dt><dd>{{資訊內容}}</dd></div>
+    </dl>
+  </header>
+
+  <!-- 目錄：報告有多個章節、需要快速跳讀時使用，連結對應章節 id。 -->
+  <nav class="toc" aria-label="{{目錄}}">
+    <h2>{{目錄}}</h2>
+    <ol>
+      <li><a href="#{{章節錨點}}">{{章節標題}}</a></li>
+    </ol>
+  </nav>
+
+  <!-- 摘要：左側寫明建議，右側只放能直接支撐建議的兩到三個數字。 -->
+  <section class="summary" aria-labelledby="{{摘要錨點}}">
+    <div>
+      <p class="eyebrow">{{摘要小字}}</p>
+      <h2 id="{{摘要錨點}}">{{建議判斷}}</h2>
+      <p>{{建議的理由與適用範圍}}</p>
+    </div>
+    <dl class="summary-metrics">
+      <div><dt>{{指標名稱}}</dt><dd>{{數值與單位}}</dd></div>
+      <div><dt>{{指標名稱}}</dt><dd>{{數值與單位}}</dd></div>
+    </dl>
+  </section>
+
+  <!-- 章節標題：每節以小字標主題、標題寫一句判斷，再用一行補足閱讀脈絡。 -->
+  <section aria-labelledby="{{章節錨點}}">
+    <header class="section-heading">
+      <p class="eyebrow">{{章節主題}}</p>
+      <h2 id="{{章節錨點}}">{{本節判斷}}</h2>
+      <p>{{本節說明}}</p>
+    </header>
+
+    <!-- 段落：說明判斷的原因、限制或下一步，讓報告可以連續閱讀。 -->
+    <p>{{段落正文}}</p>
+
+    <!-- 重點框：只有一句需要讀者停下來記住的結論時使用。 -->
+    <aside class="callout"><p>{{重點判斷}}</p></aside>
+
+    <!-- 圖表：有數據可畫時放無標題來源列的 SVG，圖說寫單位、期間、來源與附註。 -->
+    <figure>
+      <div class="chart-scroll" tabindex="0" role="region" aria-label="{{圖表捲動區名稱}}">
+        <svg viewBox="0 0 680 240" role="img" aria-labelledby="{{圖表標題錨點}}">
+          <title id="{{圖表標題錨點}}">{{圖表可存取標題}}</title>
+          <text x="24" y="48">{{SVG 圖表內容}}</text>
+        </svg>
+      </div>
+      <figcaption>{{圖表說明}}｜單位：{{單位}}｜期間：{{期間}}｜來源：{{來源}}｜附註：{{必要附註}}</figcaption>
+    </figure>
+
+    <!-- 表格：精確數值需要逐格比對時使用；數字靠右，重點列與合計列各自標示。 -->
+    <div class="table-scroll" tabindex="0" role="region" aria-label="{{表格捲動區名稱}}">
+      <table>
+        <caption>{{表格標題}}</caption>
+        <thead><tr><th scope="col">{{項目}}</th><th scope="col" class="num">{{數值欄名}}</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">{{列名}}</th><td class="num">{{數值}}</td></tr>
+          <tr class="emphasis"><th scope="row">{{重點列名}}</th><td class="num">{{重點數值}}</td></tr>
+        </tbody>
+        <tfoot><tr class="total"><th scope="row">{{合計列名}}</th><td class="num">{{合計數值}}</td></tr></tfoot>
+      </table>
+    </div>
+
+    <!-- 方案比較：須在幾個方案間取捨時使用，推薦方案整欄加 recommended。 -->
+    <div class="table-scroll" tabindex="0" role="region" aria-label="{{方案比較捲動區名稱}}">
+      <table class="comparison">
+        <caption>{{方案比較標題}}</caption>
+        <thead><tr><th scope="col">{{比較項目}}</th><th scope="col" class="recommended">{{建議方案}}</th><th scope="col">{{其他方案}}</th></tr></thead>
+        <tbody><tr><th scope="row">{{條件}}</th><td class="recommended">{{建議方案說明}}</td><td>{{其他方案說明}}</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- 診斷清單：逐項列出原因、觀察或待查問題時使用。 -->
+    <ul class="diagnosis">
+      <li><strong>{{診斷項目}}</strong><span>{{觀察與判斷}}</span></li>
+    </ul>
+
+    <!-- 流程：有先後順序與目前位置時使用，依實際作業順序排列。 -->
+    <ol class="flow">
+      <li><strong>{{階段名稱}}</strong><span>{{階段說明}}</span></li>
+      <li aria-current="step"><strong>{{目前階段}}</strong><span>{{目前作業}}</span></li>
+    </ol>
+
+    <!-- 決議事項：已確認的工作用事項、負責人、期限交付，不代填未定資訊。 -->
+    <div class="table-scroll" tabindex="0" role="region" aria-label="{{決議事項捲動區名稱}}">
+      <table class="decisions">
+        <caption>{{決議事項標題}}</caption>
+        <thead><tr><th scope="col">{{事項}}</th><th scope="col">{{負責人}}</th><th scope="col">{{期限}}</th></tr></thead>
+        <tbody><tr><th scope="row">{{待辦工作}}</th><td>{{承辦單位}}</td><td>{{到期時間}}</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- 來源與附註：列出資料出處、口徑、限制及讀圖所需的補充資訊。 -->
+    <footer class="sources">
+      <h3>{{來源與附註}}</h3>
+      <p>{{資料來源與口徑}}</p>
+      <p>{{必要附註}}</p>
+    </footer>
+
+    <!-- 未提供：論證需要但原稿沒有給的資料，在原位明確標記。 -->
+    <p class="missing">未提供：{{缺少的資料}}</p>
+  </section>
+</main>
+</body>
+</html>

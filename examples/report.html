@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>青林標本館登錄流程改善</title>
+  <style id="clayprint-theme">
+:root {
+  --cp-paper: #FAF9F5;
+  --cp-ink: #141413;
+  --cp-muted: #5E5D59;
+  --cp-title: #141413;
+  --cp-line: #E8E6DC;
+  --cp-accent: #C2553A;
+  --cp-tint: #F5E6DE;
+  --cp-soft: #B0AEA5;
+  --cp-font: "Helvetica Neue", "Segoe UI", "Arial", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --cp-body: 16px;
+  --cp-small: 12px;
+  --cp-sub: 18px;
+  --cp-title-size: 28px;
+  --cp-display: 52px;
+}
+* { box-sizing: border-box; }
+html { color: var(--cp-ink); background: var(--cp-paper); font-family: var(--cp-font); font-size: var(--cp-body); line-height: 1.65; }
+body { margin: 0 auto; padding: 0 24px 72px; max-width: 940px; overflow-wrap: anywhere; }
+main, article, section { min-width: 0; }
+h1, h2, h3, p { margin-top: 0; }
+h1, h2, h3 { color: var(--cp-title); line-height: 1.25; }
+h1 { font-size: clamp(32px, 7vw, var(--cp-display)); letter-spacing: -.035em; }
+h2 { font-size: var(--cp-title-size); letter-spacing: -.02em; }
+h3 { font-size: var(--cp-sub); }
+p, li { max-width: 72ch; }
+a { color: var(--cp-accent); text-underline-offset: .16em; }
+.report-cover { padding: 72px 0 64px; border-bottom: 3px solid var(--cp-accent); }
+.eyebrow { color: var(--cp-accent); font-size: var(--cp-small); font-weight: 700; letter-spacing: .08em; }
+.report-cover > p:not(:first-child) { font-size: var(--cp-sub); }
+.cover-meta { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 40px; color: var(--cp-muted); font-size: var(--cp-small); }
+.cover-meta dt { font-weight: 700; }
+.cover-meta dd, .summary-metrics dd { margin: 0; }
+.toc, section { margin-top: 52px; }
+.toc ol { padding-left: 1.4em; }
+.toc li { border-bottom: 1px solid var(--cp-line); padding: 7px 0; }
+.summary { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 28px; padding: 30px; background: var(--cp-tint); }
+.summary h2 { margin-bottom: 12px; }
+.summary-metrics { display: grid; gap: 12px; align-content: center; }
+.summary-metrics dt { color: var(--cp-muted); font-size: var(--cp-small); }
+.summary-metrics dd { color: var(--cp-accent); font-size: var(--cp-title-size); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.section-heading { margin-bottom: 22px; border-top: 1px solid var(--cp-line); padding-top: 24px; }
+.section-heading > p:last-child { color: var(--cp-muted); }
+.callout { margin: 28px 0; padding: 20px 24px; background: var(--cp-tint); }
+figure { margin: 32px 0; }
+figure svg { display: block; width: 100%; height: auto; max-width: 100%; }
+.chart-scroll { max-width: 100%; overflow-x: auto; }
+figcaption, .sources { margin-top: 10px; color: var(--cp-muted); font-size: var(--cp-small); line-height: 1.5; }
+.chart-focus { fill: var(--cp-accent); stroke: var(--cp-accent); }
+.chart-muted { fill: var(--cp-soft); stroke: var(--cp-soft); }
+.chart-grid { stroke: var(--cp-line); }
+.chart-text { fill: var(--cp-ink); }
+.chart-subtle { fill: var(--cp-muted); }
+.table-scroll { max-width: 100%; overflow-x: auto; box-shadow: inset -12px 0 10px -12px var(--cp-accent); }
+table { width: 100%; border-collapse: collapse; text-align: left; font-variant-numeric: tabular-nums; }
+caption { text-align: left; }
+th, td { padding: 11px 14px; border-bottom: 1px solid var(--cp-line); vertical-align: top; }
+thead th { border-bottom: 2px solid var(--cp-ink); font-size: var(--cp-small); }
+.num, td[data-type="number"], th[data-type="number"] { text-align: right; white-space: nowrap; }
+tr.emphasis, tr.total { font-weight: 700; background: var(--cp-tint); }
+.comparison .recommended { background: var(--cp-tint); }
+.diagnosis, .flow { padding-left: 1.4em; }
+.diagnosis li, .flow li { padding: 9px 0; border-bottom: 1px solid var(--cp-line); }
+.flow li::marker { color: var(--cp-accent); font-weight: 700; }
+.missing { display: inline-block; padding: 0 .4em; border: 1px solid var(--cp-muted); color: var(--cp-muted); font-size: var(--cp-small); }
+@media (max-width: 640px) {
+  body { padding: 0 18px 44px; }
+  .report-cover { padding: 48px 0 42px; }
+  .summary { grid-template-columns: 1fr; padding: 20px; }
+  .summary-metrics { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+  .chart-scroll svg { min-width: 640px; max-width: none; }
+}
+@page { size: A4; margin: 18mm 19mm; }
+@media print {
+  html { background: var(--cp-paper); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  body { max-width: none; padding: 0; }
+  .report-cover { break-after: page; }
+  .section-heading { break-after: avoid; }
+  /* A short section stays on one page so its heading never sits alone; Chrome breaks sections taller than a page anyway. */
+  section { break-inside: avoid; }
+  figure, .callout, .summary, .table-scroll, .comparison, .diagnosis, .flow, .decisions { break-inside: avoid; }
+  tr { break-inside: avoid; }
+  .chart-scroll, .table-scroll { overflow: visible; box-shadow: none; }
+  .chart-scroll svg { min-width: 0; max-width: 100%; }
+  .sources { break-before: avoid; }
+  a { color: inherit; }
+}
+</style>
+</head>
+<body>
+<main class="report">
+  <header class="report-cover">
+    <p class="eyebrow">青林標本館／流程試行報告</p>
+    <h1>讓標本登錄從交接開始變快</h1>
+    <p class="cover-message">統一收件欄位與交接順序，再用同一口徑回看登錄時間。</p>
+    <dl class="cover-meta">
+      <div><dt>範圍</dt><dd>單一館區</dd></div>
+      <div><dt>期間</dt><dd>試行週</dd></div>
+      <div><dt>資料性質</dt><dd>虛構示意資料</dd></div>
+    </dl>
+  </header>
+
+  <nav class="toc" aria-label="目錄">
+    <h2>目錄</h2>
+    <ol>
+      <li><a href="#time">時間結果：先看收件到登錄</a></li>
+      <li><a href="#process">作業方法：欄位與交接一起調整</a></li>
+      <li><a href="#decide">下一步：核定責任後繼續試行</a></li>
+    </ol>
+  </nav>
+
+  <section class="summary" aria-labelledby="summary-title">
+    <div>
+      <p class="eyebrow">摘要</p>
+      <h2 id="summary-title">先統一欄位，再固定交接順序</h2>
+      <p>這次試行針對重填與等待說明兩個問題調整作業。下輪試行前，先確認欄位和交接責任，再以相同口徑回看結果。</p>
+    </div>
+    <dl class="summary-metrics">
+      <div><dt>試行登錄時間</dt><dd>18 小時</dd></div>
+      <div><dt>試行處理</dt><dd>240 件</dd></div>
+      <div><dt>遺漏欄位</dt><dd>0 件</dd></div>
+    </dl>
+  </section>
+
+  <section aria-labelledby="time">
+    <header class="section-heading">
+      <p class="eyebrow">時間結果</p>
+      <h2 id="time">試行登錄時間為 18 小時，低於 24 小時目標</h2>
+      <p>比較的是從收件到完成登錄的時間，範圍為單一館區。</p>
+    </header>
+    <p>調整前需要 36 小時；這次試行把目標設為 24 小時，實際完成時間為 18 小時。這些數字支持在同一館區持續觀察，但還不能代表其他館區也會得到相同結果。</p>
+    <figure>
+      <div class="chart-scroll" tabindex="0" role="region" aria-label="登錄時間圖表，可橫向捲動">
+        <svg viewBox="0 0 680 250" role="img" aria-labelledby="time-chart-title">
+          <title id="time-chart-title">調整前、試行目標與試行實際登錄時間</title>
+          <line class="chart-grid" x1="155" x2="640" y1="218" y2="218"/>
+          <text class="chart-text" x="16" y="58">調整前</text>
+          <rect class="chart-muted" x="155" y="35" width="432" height="30"/>
+          <text class="chart-text" x="598" y="58">36 小時</text>
+          <text class="chart-text" x="16" y="122">試行目標</text>
+          <rect class="chart-muted" x="155" y="99" width="288" height="30"/>
+          <text class="chart-text" x="454" y="122">24 小時</text>
+          <text class="chart-text" x="16" y="186">試行實際</text>
+          <rect class="chart-focus" x="155" y="163" width="216" height="30"/>
+          <text class="chart-text" x="382" y="186">18 小時</text>
+        </svg>
+      </div>
+      <figcaption>登錄時間比較｜單位：小時｜期間：調整前與試行週｜來源：青林標本館流程試行稿（虛構示意資料）｜附註：24 小時是試行目標，非觀察值。</figcaption>
+    </figure>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="登錄時間表格，可橫向捲動">
+      <table>
+        <caption>同一流程的時間對照</caption>
+        <thead><tr><th scope="col">口徑</th><th scope="col" class="num">時間</th><th scope="col">性質</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">調整前</th><td class="num">36 小時</td><td>觀察值</td></tr>
+          <tr><th scope="row">試行目標</th><td class="num">24 小時</td><td>目標值</td></tr>
+          <tr class="emphasis"><th scope="row">試行實際</th><td class="num">18 小時</td><td>觀察值</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="process">
+    <header class="section-heading">
+      <p class="eyebrow">作業方法</p>
+      <h2 id="process">欄位、交接與檢核要並列建立</h2>
+      <p>試行先處理反覆填寫與等待口頭說明，再固定後續檢核口徑。</p>
+    </header>
+    <p>同一資訊反覆登錄，讓收件欄位先成為統一工作的起點；下一站等待說明，則要求交接順序和責任都明確。品質檢核要沿用相同口徑，不應只看時間。</p>
+    <ul class="diagnosis">
+      <li><strong>欄位重填</strong><span>同一資訊反覆登錄；先統一收件欄位。</span></li>
+      <li><strong>口頭交接</strong><span>下一站等待說明；固定交接順序。</span></li>
+    </ul>
+    <figure>
+      <div class="chart-scroll" tabindex="0" role="region" aria-label="處理與品質圖表，可橫向捲動">
+        <svg viewBox="0 0 680 230" role="img" aria-labelledby="quality-chart-title">
+          <title id="quality-chart-title">試行週處理件數與遺漏欄位件數</title>
+          <text class="chart-text" x="20" y="62">試行處理</text>
+          <rect class="chart-focus" x="155" y="34" width="430" height="34"/>
+          <text class="chart-text" x="596" y="62">240 件</text>
+          <text class="chart-text" x="20" y="140">遺漏欄位</text>
+          <line class="chart-grid" x1="155" x2="585" y1="126" y2="126"/>
+          <circle class="chart-focus" cx="155" cy="126" r="5"/>
+          <text class="chart-text" x="171" y="140">0 件</text>
+        </svg>
+      </div>
+      <figcaption>試行週處理與品質檢核｜單位：件｜期間：試行週｜來源：青林標本館流程試行稿（虛構示意資料）｜附註：240 件是處理總量，0 件是遺漏欄位件數，兩者不是互斥分類。</figcaption>
+    </figure>
+    <p>試行週共處理 240 件，遺漏欄位為 0 件。這是同一館區試行週的紀錄；接下來仍須回看登錄時間。</p>
+    <ol class="flow">
+      <li><strong>收件</strong><span>先統一收件欄位。</span></li>
+      <li aria-current="step"><strong>交接檢核</strong><span>目前所在階段，核對交接。</span></li>
+      <li><strong>正式登錄</strong><span>依固定順序完成登錄。</span></li>
+      <li><strong>結果回看</strong><span>以同一口徑檢核時間與品質。</span></li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="decide">
+    <header class="section-heading">
+      <p class="eyebrow">下一步</p>
+      <h2 id="decide">先確認欄位與交接責任，再進入下一輪試行</h2>
+      <p>把原稿已指定的工作與負責單位整理成可追蹤的決議事項。</p>
+    </header>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="決議事項表格，可橫向捲動">
+      <table class="decisions">
+        <caption>下一輪試行的工作安排</caption>
+        <thead><tr><th scope="col">事項</th><th scope="col">負責人</th><th scope="col">期限</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">核定欄位</th><td>資料組</td><td>下一輪試行前</td></tr>
+          <tr><th scope="row">確認交接責任</th><td>作業組</td><td>下一輪試行前</td></tr>
+          <tr><th scope="row">回看登錄時間</th><td>品管組</td><td>試行後</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <footer class="sources">
+      <h3>來源與附註</h3>
+      <p>來源：〈青林標本館登錄流程改善〉原稿，虛構示意資料。數字與責任分工均依原稿整理。</p>
+      <p>圖中的試行目標與實際結果分開呈現；後續試行結果仍需再檢核。</p>
+    </footer>
+  </section>
+</main>
+</body>
+</html>

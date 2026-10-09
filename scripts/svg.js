@@ -1,6 +1,6 @@
 // Draw a prepared chart model as SVG. Only plain shapes and text: no <pattern>, clipPath,
 // dominant-baseline or CSS, so PowerPoint's SVG renderer and resvg agree.
-// node scripts/svg.js chart.json out.svg [--no-frame] [--width N] [--height N]
+// node scripts/svg.js chart.json out.svg [--bare] [--width inches] [--height px]
 import { readFileSync, writeFileSync } from 'node:fs';
 import { T, C, FONT_FAMILY, prepare, formatValue, tickText, textWidth } from './core.js';
 
@@ -589,21 +589,43 @@ export function framed(spec, opts = {}) {
   return { ...r, svg: doc(W, height, body, opts.font), body, height };
 }
 
+// Keep enough vertical space for document charts whose categories run down the page.
+function reportHeight(model) {
+  const count = {
+    rank: model.rows?.length, slope: model.rows?.length, share: model.rows?.length,
+    strip: model.groups?.length, dumbbell: model.rows?.length, funnel: model.steps?.length,
+    heat: model.rowLabels?.length, table: model.rows?.length,
+  }[model.kind];
+  return count ? Math.max(360, 80 + count * 68) : 520;
+}
+
 if (import.meta.main) {
   const args = process.argv.slice(2);
-  const flag = (name) => { const i = args.indexOf(name); return i < 0 ? undefined : args.splice(i, 2)[1]; };
+  const flag = (name) => { const i = args.indexOf(name); return i < 0 ? undefined : args.splice(i, 2)[1] ?? ''; };
   const noFrame = args.includes('--no-frame') && args.splice(args.indexOf('--no-frame'), 1);
+  const bare = args.includes('--bare') && args.splice(args.indexOf('--bare'), 1);
   const width = flag('--width'), height = flag('--height');
   const [input, output] = args;
-  if (!input || !output) {
-    console.error('用法：node scripts/svg.js chart.json out.svg [--no-frame] [--width N] [--height N]');
+  const positive = (value) => Number.isFinite(Number(value)) && Number(value) > 0;
+  if (!input || !output || args.length !== 2 || (width !== undefined && !positive(width)) || (height !== undefined && !positive(height)) || (bare && noFrame)) {
+    console.error('用法：node scripts/svg.js chart.json out.svg [--bare | --no-frame] [--width 英吋] [--height 像素]');
     process.exit(2);
   }
   try {
     const spec = JSON.parse(readFileSync(input, 'utf8'));
-    const opts = { width: width && Number(width), height: height && Number(height) };
-    const out = noFrame ? render(spec, opts) : framed(spec, opts);
+    const opts = {};
+    if (bare || width !== undefined) opts.width = Math.round(Number(width ?? 6.8) * T.slide.pxPerIn);
+    if (height !== undefined) opts.height = Number(height);
+    else if (bare) opts.height = reportHeight(prepare(spec));
+    const out = bare || noFrame ? render(spec, opts) : framed(spec, opts);
     writeFileSync(output, out.svg);
+    if (bare) {
+      const notes = [typeof spec.note === 'string' ? spec.note : null,
+        out.model.missing.length && T.dataDisplay.missing.sourceField.replace('{item}', out.model.missing.join('、'))].filter(Boolean);
+      for (const [label, value] of [['單位', out.model.unit], ['期間', out.model.period], ['來源', out.model.source], ['附註', notes.join('；')]]) {
+        console.log(`${label}：${value || '未提供'}`);
+      }
+    }
     for (const w of out.model.warnings) console.error(`警告：${w}`);
   } catch (e) {
     console.error(`錯誤：${e.message}`);
