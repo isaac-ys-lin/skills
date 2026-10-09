@@ -1,0 +1,518 @@
+// Data side of Blueprint charts: number formatting, deltas, ticks, color roles.
+// Everything visual comes from design/tokens.json; nothing here draws.
+import tokens from '../design/tokens.json' with { type: 'json' };
+
+export const T = tokens;
+export const C = tokens.color;
+export const FONT_FAMILY = [...tokens.font.latin, ...tokens.font.cjk, 'sans-serif']
+  .map((f) => (f.includes(' ') ? `'${f}'` : f)).join(', ');
+const MINUS = '−';
+const OTHER = tokens.categoryRules.otherByName;
+
+const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+const round = (v, digits) => Number(v.toFixed(digits));
+
+function group(intPart) {
+  return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// A label for one value. 0 is a value; null is missing. A non-zero value never prints as 0.
+export function formatValue(v, { digits = 0, suffix = '' } = {}) {
+  if (!isNum(v)) return null;
+  if (v === 0) return `0${suffix}`;
+  const r = round(v, digits);
+  if (r === 0) {
+    const step = (10 ** -digits).toFixed(digits);
+    return `${v > 0 ? '<' : `>${MINUS}`}${step}${suffix}`;
+  }
+  const [i, f] = Math.abs(r).toFixed(digits).split('.');
+  return `${r < 0 ? MINUS : ''}${group(i)}${f ? `.${f}` : ''}${suffix}`;
+}
+
+// Change label: the sign is literal, the color says better or worse.
+// mode: 'abs' difference, 'pct' percent change, 'pp' difference between two percentages.
+export function delta(prev, curr, { better = 'higher', mode = 'abs', digits = 0, suffix = '' } = {}) {
+  if (!isNum(prev) || !isNum(curr)) return null;
+  if (mode === 'pct' && prev === 0) mode = 'abs';
+  const d = mode === 'pct' ? ((curr - prev) / Math.abs(prev)) * 100 : curr - prev;
+  if (d === 0) return { text: tokens.delta.signs.unchanged, color: C.unchanged };
+  const unit = mode === 'pp' ? ` ${tokens.delta.percentOfPercent}` : mode === 'pct' ? '%' : suffix;
+  const sign = d > 0 ? tokens.delta.signs.increase : tokens.delta.signs.decrease;
+  const good = (d > 0) === (better !== 'lower');
+  return { text: `${sign}${formatValue(Math.abs(d), { digits })}${unit}`, color: good ? C.better : C.worse };
+}
+
+// Ticks on 1/2/5 × 10^n steps covering [min, max]. Takes the finest step that keeps at most count + 2 ticks,
+// so the top tick hugs the data (0–5,000 for 4,100, not 0–6,000).
+export function niceTicks(min, max, count = 5) {
+  // A range too small to step through (e.g. 0 to 1e-101) gets a unit range; labels still say "<1".
+  if (max - min < 1e-9 * Math.max(1, Math.abs(min), Math.abs(max))) max = min + 1;
+  const raw = (max - min) / count;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const steps = [1, 2, 5, 10, 20, 50].map((k) => k * mag).filter((s) => s >= raw * 0.8);
+  for (const step of steps) {
+    const decimals = Math.max(0, -Math.floor(Math.log10(step)));
+    const lo = Math.floor(min / step + 1e-9) * step;
+    const hi = Math.ceil(max / step - 1e-9) * step;
+    if (Math.round((hi - lo) / step) + 1 > count + 2 && step !== steps.at(-1)) continue;
+    const ticks = [];
+    for (let t = lo; t <= hi + step / 2; t += step) ticks.push(round(t, decimals));
+    return { ticks, lo: ticks[0], hi: ticks.at(-1), step, decimals };
+  }
+}
+
+// Most decimal places among the numbers (capped at 6), for bin edges and legend ranges.
+export function decimalsOf(nums) {
+  return Math.max(0, ...nums.filter(isNum).map((v) => {
+    const [, frac = ''] = String(Number(v.toFixed(6))).split('.');
+    return frac.length;
+  }));
+}
+
+// Axis labels keep the tick step's precision, so 0.1 never prints as "<1".
+export function tickText(axis, t, suffix = '') {
+  return formatValue(t, { digits: axis.decimals, suffix });
+}
+
+// Color per category name. With a shared order (from the deck), a name keeps its color in every chart;
+// "其他" is gray by name; anything past the 4th category folds into "其他".
+export function categoryColors(names, { order } = {}) {
+  const ranked = [...(order ?? []), ...names].filter((n, i, all) => n !== OTHER && all.indexOf(n) === i);
+  const colors = new Map();
+  const folded = [];
+  for (const name of names) {
+    if (name === OTHER) continue;
+    const i = ranked.indexOf(name);
+    if (i < tokens.categoryRules.maxCategorical) colors.set(name, C.categorical[i]);
+    else folded.push(name);
+  }
+  folded.sort((a, b) => ranked.indexOf(a) - ranked.indexOf(b));
+  if (folded.length || names.includes(OTHER)) colors.set(OTHER, C.other);
+  return { colors, folded };
+}
+
+export function shares(values) {
+  if (values.some((v) => !isNum(v) || v < 0)) throw new Error('比例需要非負的數字');
+  const sum = values.reduce((a, b) => a + b, 0);
+  if (sum === 0) throw new Error('比例的總和不能是 0');
+  return values.map((v) => v / sum);
+}
+
+const inkFor = new Map(Object.entries(tokens.textOnFill).flatMap(([ink, fills]) => fills.map((f) => [f.toUpperCase(), ink])));
+
+// Label color on a filled mark, from the spec's contrast table.
+export function textOn(fill) {
+  const ink = inkFor.get(fill.toUpperCase());
+  if (!ink) throw new Error(`色塊 ${fill} 不在規格的文字對比表裡`);
+  return ink;
+}
+
+function luminance(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+export function contrast(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// Equal-width bins from 0 to the maximum; each bin holds its lower edge, the top bin also its upper edge.
+export function heatBins(values, steps = tokens.heatmap.steps) {
+  const nums = values.filter(isNum);
+  if (nums.some((v) => v < 0)) throw new Error('熱度格從 0 起算；有負值要改用雙向色階');
+  const max = Math.max(...nums);
+  const width = max > 0 ? max / steps : 1;
+  const edges = Array.from({ length: steps + 1 }, (_, i) => round(i * width, 10));
+  const binOf = (v) => Math.min(steps - 1, Math.floor(v / width + 1e-9));
+  return { edges, binOf };
+}
+
+// Advance widths in em, calibrated against resvg with Helvetica Neue and PingFang (tests/core.test.js).
+function charEm(ch) {
+  const c = ch.codePointAt(0);
+  if ((c >= 0x2e80 && c <= 0x9fff) || (c >= 0xf900 && c <= 0xfaff) || (c >= 0xff00 && c <= 0xffef) || (c >= 0x3000 && c <= 0x303f)) return 1;
+  if (ch >= '0' && ch <= '9') return 0.6;
+  if ('ijlI'.includes(ch)) return 0.26;
+  if ('frt'.includes(ch)) return 0.37;
+  if (ch === 'm') return 0.86;
+  if (ch === 'w') return 0.76;
+  if (ch === 'M' || ch === 'W') return 0.92;
+  if (ch >= 'A' && ch <= 'Z') return 0.7;
+  if (ch >= 'a' && ch <= 'z') return 0.56;
+  if (',.:;\'|'.includes(ch)) return 0.28;
+  if (ch === ' ') return 0.34;
+  if (ch === '%') return 0.97;
+  if (ch === MINUS || ch === '–') return 0.83;
+  return 0.6;
+}
+
+export function textWidth(str, px) {
+  let em = 0;
+  for (const ch of String(str)) em += charEm(ch);
+  return em * px;
+}
+
+// ---- prepare: spec → model. The model is what both renderers draw (SVG now, PowerPoint native in Phase 3):
+// every mark carries its raw value, its label text and its color; missing values are listed for the source row.
+
+const KINDS = {};
+const numOrNull = (v) => v === null || isNum(v);
+const need = (ok, msg) => { if (!ok) throw new Error(msg); };
+const fmt = (m) => (v) => formatValue(v, { digits: m.digits });
+
+export function prepare(spec, opts = {}) {
+  need(spec && typeof spec === 'object', '圖表 spec 必須是物件');
+  const fn = KINDS[spec.kind];
+  need(fn, `不認得的圖表種類：${spec.kind}`);
+  const model = {
+    kind: spec.kind, unit: spec.unit ?? null, period: spec.period ?? null, source: spec.source ?? null,
+    digits: spec.digits ?? 0, better: spec.better ?? tokens.delta.better.default, missing: [], warnings: [],
+  };
+  return fn(spec, model, opts);
+}
+
+KINDS.rank = (spec, m) => {
+  need(Array.isArray(spec.rows) && spec.rows.length, 'rank 需要 rows');
+  for (const r of spec.rows) need(typeof r.label === 'string' && numOrNull(r.value), `rank 的資料格式不對：${JSON.stringify(r)}`);
+  let rows = spec.rows.filter((r) => (r.value === null ? (m.missing.push(r.label), false) : true));
+  need(rows.length, 'rank 沒有任何數值');
+  if (spec.sort !== false) rows = [...rows].sort((a, b) => b.value - a.value);
+  if (spec.focus && !rows.some((r) => r.label === spec.focus)) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
+  const vals = rows.map((r) => r.value);
+  m.axis = niceTicks(Math.min(0, ...vals), Math.max(0, ...vals), 4);
+  m.rows = rows.map((r) => ({
+    label: r.label, value: r.value, text: fmt(m)(r.value), focus: r.label === spec.focus,
+    color: !spec.focus || r.label === spec.focus ? C.focus : C.gray,
+  }));
+  return m;
+};
+
+function series(spec, m, opts, tickCount) {
+  need(Array.isArray(spec.x) && spec.x.length >= 2, `${spec.kind} 需要 x（至少兩個點）`);
+  need(Array.isArray(spec.series) && spec.series.length, `${spec.kind} 需要 series`);
+  for (const s of spec.series) {
+    need(typeof s.name === 'string' && Array.isArray(s.values) && s.values.length === spec.x.length && s.values.every(numOrNull),
+      `${spec.kind} 的系列「${s.name}」長度或數值不對`);
+  }
+  const all = spec.series.flatMap((s) => s.values).filter(isNum);
+  need(all.length, `${spec.kind} 沒有任何數值`);
+  m.x = spec.x;
+  m.axis = niceTicks(Math.min(0, ...all), Math.max(...all), tickCount);
+  const single = spec.series.length === 1;
+  const cats = spec.focus || single || spec.kind === 'multiples' ? null : categoryColors(spec.series.map((s) => s.name), { order: opts.categoryOrder });
+  if (cats?.folded.length) m.warnings.push(`沒有 focus 的系列超過 4 條，「${cats.folded.join('、')}」改用「其他」的灰`);
+  if (spec.focus && !spec.series.some((s) => s.name === spec.focus)) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
+  m.series = spec.series.map((s) => {
+    s.values.forEach((v, i) => v === null && m.missing.push(`${s.name} ${spec.x[i]}`));
+    const focus = spec.focus ? s.name === spec.focus : single;
+    const color = cats ? cats.colors.get(s.name) ?? C.other : focus ? C.focus : C.gray;
+    const last = s.values.findLastIndex(isNum);
+    let peak = -1;
+    if (focus) {
+      peak = s.values.reduce((best, v, i) => (isNum(v) && (best < 0 || v > s.values[best]) ? i : best), -1);
+      if (peak === last || s.values[peak] === s.values[last]) peak = -1;
+    }
+    return {
+      name: s.name, values: s.values, texts: s.values.map(fmt(m)), focus, color,
+      width: focus || !spec.focus ? tokens.stroke.focusLine : tokens.stroke.otherLine, last, peak,
+    };
+  });
+  return m;
+}
+
+KINDS.line = (spec, m, opts) => series(spec, m, opts, 4);
+
+KINDS.multiples = (spec, m, opts) => {
+  series({ ...spec, focus: undefined }, m, opts, 2);
+  for (const s of m.series) Object.assign(s, { color: C.focus, width: tokens.stroke.focusLine, peak: -1 });
+  if (m.series.length > 6) m.warnings.push(`小倍數有 ${m.series.length} 格，超過 6 格會很擠`);
+  return m;
+};
+
+// Two periods per row: slope and dumbbell. Older period is the light Ordered step, newer the darkest.
+function pairs(spec, m, { fromZero = false } = {}) {
+  need(Array.isArray(spec.periods) && spec.periods.length === 2, `${spec.kind} 需要兩個 periods`);
+  need(Array.isArray(spec.rows) && spec.rows.length, `${spec.kind} 需要 rows`);
+  m.periods = spec.periods;
+  m.colors = [C.ordered[0], C.ordered.at(-1)];
+  m.rows = [];
+  for (const r of spec.rows) {
+    need(typeof r.label === 'string' && Array.isArray(r.values) && r.values.length === 2 && r.values.every(numOrNull),
+      `${spec.kind} 的資料格式不對：${JSON.stringify(r)}`);
+    const gaps = r.values.flatMap((v, i) => (v === null ? [`${r.label} ${spec.periods[i]}`] : []));
+    m.missing.push(...gaps);
+    if (gaps.length === 2) continue;
+    m.rows.push({
+      label: r.label, values: r.values, texts: r.values.map(fmt(m)),
+      delta: delta(r.values[0], r.values[1], { better: m.better, digits: m.digits }),
+    });
+  }
+  const all = m.rows.flatMap((r) => r.values).filter(isNum);
+  need(all.length, `${spec.kind} 沒有任何數值`);
+  m.axis = niceTicks(Math.min(fromZero ? 0 : Infinity, ...all), Math.max(...all), 4);
+  return m;
+}
+
+KINDS.slope = (spec, m) => pairs(spec, m);
+
+KINDS.share = (spec, m, opts) => {
+  need(Array.isArray(spec.categories) && spec.categories.length, 'share 需要 categories');
+  need(Array.isArray(spec.rows) && spec.rows.length, 'share 需要 rows');
+  const { colors, folded } = categoryColors(spec.categories, { order: opts.categoryOrder });
+  if (folded.length) m.warnings.push(`超過 ${tokens.categoryRules.maxCategorical} 類，「${folded.join('、')}」併入「其他」`);
+  const ranked = [...(opts.categoryOrder ?? []), ...spec.categories];
+  const kept = spec.categories.filter((c) => c !== OTHER && colors.has(c)).sort((a, b) => ranked.indexOf(a) - ranked.indexOf(b));
+  if (!kept.length) m.warnings.push('所有類別都被併入「其他」，這張圖沒有資訊');
+  m.categories = [...kept, ...(colors.has(OTHER) ? [OTHER] : [])].map((name) => ({ name, color: colors.get(name), other: name === OTHER }));
+  m.rows = spec.rows.flatMap((r) => {
+    need(typeof r.label === 'string' && Array.isArray(r.values) && r.values.length === spec.categories.length && r.values.every(numOrNull),
+      `share 的資料格式不對：${JSON.stringify(r)}`);
+    need(r.values.every((v) => v === null || v >= 0), `share 不能有負值：${r.label}`);
+    const gaps = spec.categories.filter((c, i) => r.values[i] === null);
+    if (gaps.length) {
+      // A missing share makes the rest look like 100%; leave the row out and say why.
+      m.missing.push(...gaps.map((c) => `${r.label} ${c}`));
+      return [];
+    }
+    const sum = new Map();
+    spec.categories.forEach((c, i) => {
+      const v = r.values[i];
+      const key = c !== OTHER && colors.has(c) ? c : OTHER;
+      sum.set(key, (sum.get(key) ?? 0) + v);
+    });
+    const vals = m.categories.map((c) => sum.get(c.name) ?? 0);
+    const total = vals.reduce((a, b) => a + b, 0);
+    if (total === 0) m.warnings.push(`「${r.label}」各類都是 0，這一列沒有長條`);
+    const sh = total === 0 ? vals.map(() => 0) : shares(vals);
+    return [{
+      label: r.label,
+      segments: m.categories.map((c, i) => ({
+        name: c.name, value: vals[i], share: sh[i], text: formatValue(sh[i] * 100, { digits: m.digits, suffix: '%' }),
+        color: c.color, other: c.other, ink: c.other ? null : textOn(c.color),
+      })),
+    }];
+  });
+  need(m.rows.length, 'share 沒有完整的一列可以畫');
+  return m;
+};
+
+KINDS.bridge = (spec, m) => {
+  need(Array.isArray(spec.steps) && spec.steps.length >= 2, 'bridge 需要 steps（至少兩步）');
+  let cum = 0, started = false;
+  m.steps = [];
+  for (const st of spec.steps) {
+    need(typeof st.label === 'string' && numOrNull(st.value), `bridge 的資料格式不對：${JSON.stringify(st)}`);
+    if (st.value === null) {
+      m.missing.push(st.label);
+      m.warnings.push(`「${st.label}」缺值，後面的累計可能不對`);
+      continue;
+    }
+    let start, end;
+    if (st.total) {
+      if (started && !st.estimate && Math.abs(st.value - cum) > 1e-9 * Math.max(1, Math.abs(cum))) {
+        m.warnings.push(`「${st.label}」是 ${fmt(m)(st.value)}，但前面累計是 ${fmt(m)(cum)}`);
+      }
+      [start, end, cum] = [0, st.value, st.value];
+    } else {
+      [start, end] = [cum, cum + st.value];
+      cum = end;
+    }
+    started = true;
+    const d = st.total ? null : delta(0, st.value, { better: m.better, digits: m.digits });
+    m.steps.push({
+      label: st.label, value: st.value, start, end, total: !!st.total, estimate: !!st.estimate,
+      text: d ? d.text : fmt(m)(st.value),
+      color: !d || d.color === C.unchanged ? C.gray : d.color,
+      textColor: d ? d.color : C.text,
+    });
+  }
+  const levels = m.steps.flatMap((s) => [s.start, s.end]);
+  m.axis = niceTicks(Math.min(0, ...levels), Math.max(0, ...levels), 4);
+  return m;
+};
+
+KINDS.histogram = (spec, m) => {
+  need(Array.isArray(spec.bins) && spec.bins.length, 'histogram 需要 bins');
+  spec.bins.forEach((b, i) => {
+    need(isNum(b.from) && (b.to === null || isNum(b.to)) && numOrNull(b.value), `histogram 的資料格式不對：${JSON.stringify(b)}`);
+    const next = spec.bins[i + 1];
+    if (next && b.to !== next.from) m.warnings.push(`分組 ${b.from}–${b.to ?? ''} 和下一組沒有接上`);
+  });
+  const vals = spec.bins.map((b) => b.value).filter(isNum);
+  need(vals.length, 'histogram 沒有任何數值');
+  m.suffix = spec.suffix ?? '';
+  const top = Math.max(...vals);
+  const focus = spec.focus !== undefined ? spec.bins.findIndex((b) => b.from === spec.focus) : spec.bins.findIndex((b) => b.value === top);
+  if (spec.focus !== undefined && focus < 0) m.warnings.push(`focus ${spec.focus} 不是任何一組的起點`);
+  m.edgeDigits = decimalsOf(spec.bins.flatMap((b) => [b.from, b.to]));
+  m.bins = spec.bins.map((b, i) => {
+    if (b.value === null) m.missing.push(`${b.from}–${b.to ?? ''}`);
+    return {
+      from: b.from, to: b.to, value: b.value, text: formatValue(b.value, { digits: m.digits, suffix: m.suffix }),
+      focus: i === focus, color: i === focus ? C.focus : C.gray,
+    };
+  });
+  m.axis = niceTicks(0, top, 3);
+  m.xLabel = spec.xLabel ?? null;
+  m.refs = (spec.refs ?? []).map((r) => ({ x: r.x, label: r.label }));
+  return m;
+};
+
+KINDS.strip = (spec, m) => {
+  need(Array.isArray(spec.groups) && spec.groups.length, 'strip 需要 groups');
+  m.groups = [];
+  for (const g of spec.groups) {
+    need(typeof g.label === 'string' && Array.isArray(g.values) && g.values.every(numOrNull), `strip 的資料格式不對：${g.label}`);
+    const vals = g.values.filter(isNum);
+    if (vals.length < g.values.length) m.missing.push(`${g.label} ${g.values.length - vals.length} 筆`);
+    if (!vals.length) continue;
+    const s = [...vals].sort((a, b) => a - b);
+    const median = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+    m.groups.push({ label: g.label, values: vals, median, medianText: fmt(m)(median), focus: g.label === spec.focus });
+  }
+  need(m.groups.length, 'strip 沒有任何數值');
+  if (spec.focus && !m.groups.some((g) => g.focus)) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
+  const all = m.groups.flatMap((g) => g.values);
+  m.axis = niceTicks(Math.min(0, ...all), Math.max(...all), 3);
+  return m;
+};
+
+function points(spec, m) {
+  need(Array.isArray(spec.points) && spec.points.length, `${spec.kind} 需要 points`);
+  const out = [];
+  for (const p of spec.points) {
+    need(typeof p.label === 'string' && numOrNull(p.x) && numOrNull(p.y), `${spec.kind} 的資料格式不對：${JSON.stringify(p)}`);
+    if (p.x === null || p.y === null) m.missing.push(p.label);
+    else out.push({ label: p.label, x: p.x, y: p.y });
+  }
+  need(out.length, `${spec.kind} 沒有任何數值`);
+  m.suffix = spec.suffix ?? '';
+  m.xLabel = spec.xLabel ?? null;
+  m.yLabel = spec.yLabel ?? null;
+  return out;
+}
+
+KINDS.scatter = (spec, m) => {
+  const pts = points(spec, m);
+  m.refs = (spec.refs ?? []).map((r) => ({ x: r.x ?? null, y: r.y ?? null, label: r.label }));
+  const xs = [...pts.map((p) => p.x), ...m.refs.map((r) => r.x).filter(isNum)];
+  const ys = [...pts.map((p) => p.y), ...m.refs.map((r) => r.y).filter(isNum)];
+  m.xAxis = niceTicks(Math.min(...xs), Math.max(...xs), 4);
+  m.yAxis = niceTicks(Math.min(...ys), Math.max(...ys), 3);
+  if (spec.focus && !pts.some((p) => p.label === spec.focus)) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
+  m.points = pts.map((p) => ({ ...p, focus: p.label === spec.focus, color: !spec.focus || p.label === spec.focus ? C.focus : C.gray }));
+  return m;
+};
+
+const QUADRANTS = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
+
+KINDS.matrix = (spec, m) => {
+  const pts = points(spec, m);
+  need(!spec.priority || QUADRANTS.includes(spec.priority), `matrix 的 priority 要是 ${QUADRANTS.join('／')}`);
+  const axis = (vals, dom) => (dom ? { lo: dom[0], hi: dom[1], ticks: [dom[0], dom[1]], decimals: 0 } : niceTicks(Math.min(...vals), Math.max(...vals), 2));
+  m.xAxis = axis(pts.map((p) => p.x), spec.domain);
+  m.yAxis = axis(pts.map((p) => p.y), spec.domain);
+  m.split = { x: spec.split?.x ?? (m.xAxis.lo + m.xAxis.hi) / 2, y: spec.split?.y ?? (m.yAxis.lo + m.yAxis.hi) / 2 };
+  m.quadrants = spec.quadrants ?? null;
+  m.priority = spec.priority ?? null;
+  const quadrantOf = (p) => `${p.y >= m.split.y ? 'top' : 'bottom'}${p.x < m.split.x ? 'Left' : 'Right'}`;
+  for (const p of pts) if (p.x === m.split.x || p.y === m.split.y) m.warnings.push(`「${p.label}」剛好在分割線上，請調整 split 或資料`);
+  m.points = pts.map((p) => {
+    const focus = m.priority ? quadrantOf(p) === m.priority : false;
+    return { ...p, quadrant: quadrantOf(p), focus, color: !m.priority || focus ? C.focus : C.gray };
+  });
+  return m;
+};
+
+KINDS.dumbbell = (spec, m) => {
+  pairs(spec, m, { fromZero: true });
+  m.xLabel = spec.xLabel ?? m.unit;
+  return m;
+};
+
+KINDS.funnel = (spec, m) => {
+  need(Array.isArray(spec.steps) && spec.steps.length >= 2, 'funnel 需要 steps（至少兩步）');
+  m.steps = spec.steps.map((st, i) => {
+    need(typeof st.label === 'string' && numOrNull(st.value) && !(st.value < 0), `funnel 的資料格式不對：${JSON.stringify(st)}`);
+    if (st.value === null) m.missing.push(st.label);
+    const prev = i > 0 ? spec.steps[i - 1].value : null;
+    if (isNum(prev) && isNum(st.value) && st.value > prev) m.warnings.push(`「${st.label}」比上一步多，漏斗應該逐步變少`);
+    const conversion = isNum(prev) && prev > 0 && isNum(st.value) ? st.value / prev : null;
+    return {
+      label: st.label, value: st.value, text: fmt(m)(st.value), conversion,
+      convText: conversion === null ? null : formatValue(conversion * 100, { suffix: '%' }),
+    };
+  });
+  const vals = m.steps.map((s) => s.value).filter(isNum);
+  need(vals.length, 'funnel 沒有任何數值');
+  let focus = -1;
+  if (spec.focus) {
+    focus = m.steps.findIndex((s) => s.label === spec.focus);
+    if (focus < 0) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
+  } else {
+    m.steps.forEach((s, i) => { if (s.conversion !== null && (focus < 0 || s.conversion < m.steps[focus].conversion)) focus = i; });
+  }
+  m.steps.forEach((s, i) => Object.assign(s, { focus: i === focus, color: i === focus ? C.focus : C.gray }));
+  m.max = Math.max(...vals);
+  if (m.max === 0) m.warnings.push('漏斗每一步都是 0');
+  return m;
+};
+
+KINDS.heat = (spec, m) => {
+  need(Array.isArray(spec.rowLabels) && Array.isArray(spec.colLabels) && Array.isArray(spec.values), 'heat 需要 rowLabels、colLabels、values');
+  need(spec.values.length === spec.rowLabels.length
+    && spec.values.every((r) => Array.isArray(r) && r.length === spec.colLabels.length && r.every(numOrNull)), 'heat 的 values 必須是列數 × 欄數的長方形');
+  const flat = spec.values.flat().filter(isNum);
+  need(flat.length, 'heat 沒有任何數值');
+  const bins = heatBins(flat);
+  const dg = decimalsOf(bins.edges);
+  m.rowLabels = spec.rowLabels;
+  m.colLabels = spec.colLabels;
+  m.legendUnit = spec.legendUnit ?? null;
+  m.legend = bins.edges.slice(0, -1).map((lo, i) => ({
+    color: C.ordered[i], text: `${formatValue(lo, { digits: dg })}–${formatValue(bins.edges[i + 1], { digits: dg })}`,
+  }));
+  m.cells = spec.values.map((row, r) => row.map((v, c) => {
+    if (v === null) return (m.missing.push(`${spec.rowLabels[r]} ${spec.colLabels[c]}`), null);
+    const color = C.ordered[bins.binOf(v)];
+    return { value: v, text: fmt(m)(v), color, ink: textOn(color) };
+  }));
+  return m;
+};
+
+// Cells carry text, alignment, color and fill so Phase 3 can map them one-to-one onto a native table.
+KINDS.table = (spec, m) => {
+  need(Array.isArray(spec.columns) && spec.columns.length, 'table 需要 columns');
+  need(Array.isArray(spec.rows) && spec.rows.length, 'table 需要 rows');
+  const isText = (j) => spec.rows.every((r) => !Array.isArray(r) || r[j] === null || typeof r[j] === 'string');
+  const cols = spec.columns.map((c, j) => ({
+    name: c.name, type: c.type ?? (isText(j) ? 'text' : 'number'), digits: c.digits ?? m.digits, suffix: c.suffix ?? '', better: c.better ?? m.better,
+  }));
+  need(cols.every((c) => ['text', 'number', 'delta'].includes(c.type)), 'table 的欄位 type 只能是 text、number、delta');
+  m.header = cols.map((c) => ({ text: c.name, align: c.type === 'text' ? 'start' : 'end' }));
+  const cells = (row, name) => cols.map((c, j) => {
+    const v = row[j];
+    const align = c.type === 'text' ? 'start' : 'end';
+    if (v === null || v === undefined) return (m.missing.push(`${name} ${c.name}`), { text: '', align, value: null, color: C.text });
+    if (c.type === 'text') return { text: String(v), align, value: v, color: C.text };
+    need(isNum(v), `table 的「${name} ${c.name}」不是數字`);
+    if (c.type === 'delta') {
+      const d = delta(0, v, { better: c.better, digits: c.digits, suffix: c.suffix });
+      return { text: d.text, align, value: v, color: d.color };
+    }
+    return { text: formatValue(v, { digits: c.digits, suffix: c.suffix }), align, value: v, color: C.text };
+  });
+  m.rows = spec.rows.map((r) => {
+    need(Array.isArray(r) && r.length === cols.length, `table 每一列要有 ${cols.length} 格`);
+    const emphasis = r[0] === spec.emphasis;
+    return { cells: cells(r, String(r[0])), emphasis, total: false, fill: emphasis ? C.tint : null, bold: emphasis };
+  });
+  if (spec.total) {
+    need(Array.isArray(spec.total) && spec.total.length === cols.length, `table 的 total 要有 ${cols.length} 格`);
+    m.rows.push({ cells: cells(spec.total, String(spec.total[0])), emphasis: false, total: true, fill: null, bold: false });
+  }
+  if (spec.emphasis && !m.rows.some((r) => r.emphasis)) m.warnings.push(`emphasis「${spec.emphasis}」不在資料裡`);
+  return m;
+};

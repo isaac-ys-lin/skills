@@ -1,0 +1,22 @@
+{
+  "kind": "matrix",
+  "unit": "0–10 分",
+  "period": "2025.12",
+  "source": "維修組評估（虛構示意資料）",
+  "xLabel": "難度",
+  "yLabel": "影響",
+  "domain": [0, 10],
+  "split": { "x": 5, "y": 5 },
+  "quadrants": { "topLeft": "優先處理", "topRight": "排程處理", "bottomLeft": "例行處理", "bottomRight": "暫緩" },
+  "priority": "topLeft",
+  "points": [
+    { "label": "煞車調整", "x": 2.5, "y": 9 },
+    { "label": "車鎖故障排除", "x": 4, "y": 8 },
+    { "label": "鏈條更換", "x": 3, "y": 7.2 },
+    { "label": "電子鎖主機板", "x": 8, "y": 8.5 },
+    { "label": "輪胎更換", "x": 6.5, "y": 4.5 },
+    { "label": "車架焊修", "x": 8.5, "y": 3.8 },
+    { "label": "車燈更換", "x": 3.5, "y": 3.6 },
+    { "label": "座墊更換", "x": 2.5, "y": 2.6 }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "funnel",
+  "unit": "人",
+  "period": "2025 年註冊會員",
+  "source": "App 會員紀錄（虛構示意資料）",
+  "steps": [
+    { "label": "註冊", "value": 100000 },
+    { "label": "完成實名", "value": 72000 },
+    { "label": "綁定付款", "value": 58000 },
+    { "label": "首次騎乘", "value": 41000 },
+    { "label": "30 天內再騎", "value": 32000 }
+  ]
+}

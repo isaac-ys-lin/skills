@@ -1,0 +1,17 @@
+{
+  "kind": "dumbbell",
+  "better": "lower",
+  "digits": 1,
+  "unit": "分鐘",
+  "period": "2024、2025 年平均",
+  "source": "維修工單（虛構示意資料）",
+  "xLabel": "分鐘",
+  "periods": ["維修流程調整前（2024）", "調整後（2025）"],
+  "rows": [
+    { "label": "河東區", "values": [12.4, 7.8] },
+    { "label": "河西區", "values": [10.6, 8.1] },
+    { "label": "港南區", "values": [14.2, 9.0] },
+    { "label": "新埔區", "values": [9.8, 8.6] },
+    { "label": "北岸區", "values": [16.0, 10.5] }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "kind": "rank",
+  "focus": "河東捷運站",
+  "unit": "次／日",
+  "period": "2025 年平均",
+  "source": "河港市交通局站點紀錄（虛構示意資料）",
+  "rows": [
+    { "label": "河東捷運站", "value": 1420 },
+    { "label": "市府站", "value": 1180 },
+    { "label": "港南轉運站", "value": 1050 },
+    { "label": "河西公園", "value": 920 },
+    { "label": "中央市場", "value": 860 },
+    { "label": "新埔車站", "value": 790 },
+    { "label": "北岸碼頭", "value": 640 },
+    { "label": "大學路口", "value": 610 }
+  ]
+}

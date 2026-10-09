@@ -1,0 +1,14 @@
+{
+  "kind": "bridge",
+  "unit": "輛",
+  "period": "2025 年；2026 為預估",
+  "source": "營運商車隊報表（虛構示意資料）",
+  "steps": [
+    { "label": "年初", "value": 3200, "total": true },
+    { "label": "新增", "value": 900 },
+    { "label": "報廢", "value": -260 },
+    { "label": "失竊", "value": -140 },
+    { "label": "年末", "value": 3700, "total": true },
+    { "label": "2026 預估", "value": 4100, "total": true, "estimate": true }
+  ]
+}

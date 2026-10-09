@@ -1,0 +1,20 @@
+{
+  "kind": "histogram",
+  "unit": "佔全部騎乘 %；最後一組為 40 分鐘以上",
+  "period": "2025.01–2025.12",
+  "source": "河港市交通局騎乘紀錄（虛構示意資料）",
+  "suffix": "%",
+  "xLabel": "分鐘",
+  "refs": [{ "x": 30, "label": "免費時限 30 分鐘" }],
+  "bins": [
+    { "from": 0, "to": 5, "value": 8 },
+    { "from": 5, "to": 10, "value": 22 },
+    { "from": 10, "to": 15, "value": 26 },
+    { "from": 15, "to": 20, "value": 18 },
+    { "from": 20, "to": 25, "value": 11 },
+    { "from": 25, "to": 30, "value": 7 },
+    { "from": 30, "to": 35, "value": 4 },
+    { "from": 35, "to": 40, "value": 2 },
+    { "from": 40, "to": null, "value": 2 }
+  ]
+}
