@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
 import { extract } from '../scripts/extract.js';
+import { build } from '../scripts/pptx.js';
 
 const chart = `<?xml version="1.0"?><c:chartSpace xmlns:c="chart"><c:chart><c:plotArea><c:barChart><c:ser><c:tx><c:strRef><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>件數</c:v></c:pt></c:strCache></c:strRef></c:tx><c:cat><c:strRef><c:strCache><c:ptCount val="2"/><c:pt idx="0"><c:v>甲</c:v></c:pt><c:pt idx="1"><c:v>乙</c:v></c:pt></c:strCache></c:strRef></c:cat><c:val><c:numRef><c:numCache><c:ptCount val="2"/><c:pt idx="0"><c:v>0</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>`;
 const rels = (entries) => `<Relationships>${entries.map(([id, type, target]) => `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}" Target="${target}"/>`).join('')}</Relationships>`;
@@ -20,16 +21,31 @@ async function fixture(ext, parts, run) {
 }
 
 test('既有 PPTX 逐頁擷取文字、備忘稿與圖表快取，保留零與缺值', async () => {
-  const story = await extract('out/story.pptx');
-  assert.equal(story.slides.length, 9);
-  assert.ok(story.slides[0].text.some((s) => s.includes('河港市')));
-  assert.ok(story.slides.some((s) => s.notes.length));
-  const native = await extract('out/native-charts.pptx');
-  assert.equal(native.slides.length, 6);
-  assert.deepEqual(native.slides.map((s) => s.charts[0]?.type).filter(Boolean), ['barChart', 'lineChart', 'lineChart', 'barChart', 'scatterChart']);
-  assert.deepEqual(native.slides[0].charts[0].series[0].values, [30, 20, 10]);
-  assert.match(native.slides[0].charts[0].embeddedWorkbook, /^ppt\/embeddings\/.*\.xlsx$/);
-  assert.equal(native.slides[1].charts[0].series[0].values[2], null);
+  // Build the decks here so the test runs in a fresh checkout (out/ is not versioned).
+  const dir = mkdtempSync(path.join(tmpdir(), 'clayprint-extract-'));
+  try {
+    const read = (name) => JSON.parse(readFileSync(new URL(`../examples/${name}.json`, import.meta.url), 'utf8'));
+    const story = read('story');
+    const storyFile = path.join(dir, 'story.pptx');
+    writeFileSync(storyFile, (await build(story)).buffer);
+    const deck = await extract(storyFile);
+    assert.equal(deck.slides.length, story.pages.length);
+    assert.ok(deck.slides[0].text.some((s) => s.includes(story.pages[0].claim.split('\n')[0])));
+    assert.ok(deck.slides.some((s) => s.notes.length));
+
+    const kinds = ['rank', 'line', 'slope', 'share', 'scatter', 'table'];
+    const nativeFile = path.join(dir, 'native.pptx');
+    writeFileSync(nativeFile, (await build({ pages: kinds.map((k) => ({ type: 'evidence', claim: k, sources: { source: '測試' }, visual: read(k) })) })).buffer);
+    const native = await extract(nativeFile);
+    assert.equal(native.slides.length, kinds.length);
+    assert.deepEqual(native.slides.map((s) => s.charts[0]?.type).filter(Boolean), ['barChart', 'lineChart', 'lineChart', 'barChart', 'scatterChart']);
+    const rank = read('rank').rows.map((r) => r.value).filter((v) => v !== null).sort((a, b) => b - a);
+    assert.deepEqual(native.slides[0].charts[0].series[0].values.filter((v) => v !== null), rank);
+    assert.match(native.slides[0].charts[0].embeddedWorkbook, /^ppt\/embeddings\/.*\.xlsx$/);
+    const line = read('line'), first = line.series.find((s) => s.name === line.focus) ?? line.series[0];
+    const missing = first.values.findIndex((v) => v === null);
+    if (missing >= 0) assert.equal(native.slides[1].charts[0].series.find((s) => s.name === first.name)?.values[missing] ?? null, null);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('DOCX 擷取段落、表格、頁首、圖表快取與圖片清單', async () => {

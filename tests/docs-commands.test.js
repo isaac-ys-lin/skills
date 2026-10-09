@@ -10,7 +10,8 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
 test('起點文件中的 node／npm 指令指向現有檔案與 npm 任務', () => {
   let commands = 0;
-  for (const doc of docs) {
+  // Derived copies may omit README.md; every document that exists must hold true.
+  for (const doc of docs.filter((d) => existsSync(join(root, d)))) {
     for (const line of readFileSync(join(root, doc), 'utf8').split('\n')) {
       if (!/\b(?:node|npm)\s+/.test(line)) continue;
       for (const [, script] of line.matchAll(/\bnode\s+([\w./-]+\.(?:mjs|js))\b/g)) {

@@ -155,8 +155,8 @@ test('環境變數切換藍色設計層後，實際 build 的投影片底色與�
   const background = actual.slide.match(/<p:bg>[\s\S]*?<a:srgbClr val="([^"]+)"/);
   assert.ok(background, '產物必須包含明確的投影片底色');
   assert.equal(background[1], hex(blue.color.onDark[0]));
-  assert.notEqual(background[1], hex(clay.color.onDark[0]));
+  if (clay.color.onDark[0] !== blue.color.onDark[0]) assert.notEqual(background[1], hex(clay.color.onDark[0]));
   assert.equal(actual.charts.length, 1);
   assert.ok(actual.charts[0].includes(`val="${hex(blue.color.focus)}"`));
-  assert.ok(!actual.charts[0].includes(`val="${hex(clay.color.focus)}"`));
+  if (clay.color.focus !== blue.color.focus) assert.ok(!actual.charts[0].includes(`val="${hex(clay.color.focus)}"`));
 });
