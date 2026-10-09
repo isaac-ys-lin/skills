@@ -1,0 +1,12 @@
+{
+  "kind": "grouped",
+  "unit": "百件",
+  "period": "前期至本期",
+  "source": "服務量試算（虛構示意資料）",
+  "seriesRole": "ordered",
+  "x": ["北區", "中區", "南區"],
+  "series": [
+    { "name": "前期", "values": [12, 15, 8] },
+    { "name": "本期", "values": [16, 14, 10] }
+  ]
+}

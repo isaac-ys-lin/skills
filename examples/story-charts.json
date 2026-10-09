@@ -1,0 +1,404 @@
+{
+  "title": "Clayprint 圖表範例",
+  "pages": [
+    {
+      "type": "cover",
+      "kicker": "Clayprint 圖表選單",
+      "claim": "從比較到診斷的圖表範例",
+      "note": "虛構示意資料；每頁展示一種圖表",
+      "sources": {
+        "source": "圖表範例文字稿（虛構示意資料）"
+      }
+    },
+    {
+      "type": "evidence",
+      "kicker": "分組比較",
+      "claim": "各區兩期服務量有不同走勢",
+      "visual": {
+        "kind": "grouped",
+        "unit": "百件",
+        "period": "前期至本期",
+        "source": "服務量試算（虛構示意資料）",
+        "seriesRole": "ordered",
+        "x": [
+          "北區",
+          "中區",
+          "南區"
+        ],
+        "series": [
+          {
+            "name": "前期",
+            "values": [
+              12,
+              15,
+              8
+            ]
+          },
+          {
+            "name": "本期",
+            "values": [
+              16,
+              14,
+              10
+            ]
+          }
+        ]
+      },
+      "sources": {
+        "source": "服務量試算（虛構示意資料）",
+        "unit": "百件",
+        "period": "前期至本期"
+      }
+    },
+    {
+      "type": "evidence",
+      "kicker": "組成趨勢",
+      "claim": "線上管道占比上升",
+      "visual": {
+        "kind": "sharetrend",
+        "unit": "%",
+        "period": "前期至本期",
+        "source": "服務管道紀錄（虛構示意資料）",
+        "categories": [
+          "線上",
+          "門市",
+          "電話"
+        ],
+        "rows": [
+          {
+            "label": "前期",
+            "values": [
+              50,
+              30,
+              20
+            ]
+          },
+          {
+            "label": "本期",
+            "values": [
+              65,
+              25,
+              10
+            ]
+          }
+        ]
+      },
+      "sources": {
+        "source": "服務管道紀錄（虛構示意資料）",
+        "unit": "%",
+        "period": "前期至本期"
+      }
+    },
+    {
+      "type": "evidence",
+      "kicker": "規模與比率",
+      "claim": "營運規模與比率一起變化",
+      "visual": {
+        "kind": "combo",
+        "unit": "百萬元；%",
+        "amountUnit": "百萬元",
+        "rateUnit": "%",
+        "period": "本年度",
+        "source": "季度營運試算（虛構示意資料）",
+        "x": [
+          "春季",
+          "夏季",
+          "秋季",
+          "冬季"
+        ],
+        "amounts": [
+          20,
+          24,
+          29,
+          26
+        ],
+        "rates": [
+          4,
+          8,
+          12,
+          6
+        ]
+      },
+      "sources": {
+        "source": "季度營運試算（虛構示意資料）",
+        "unit": "百萬元；%",
+        "period": "本年度"
+      }
+    },
+    {
+      "type": "evidence",
+      "kicker": "實際與目標",
+      "claim": "丙組超過目標，其他組尚有差距",
+      "visual": {
+        "kind": "bullet",
+        "unit": "件",
+        "period": "本期",
+        "source": "服務目標試算（虛構示意資料）",
+        "better": "higher",
+        "rows": [
+          {
+            "label": "甲組",
+            "value": 92,
+            "target": 100,
+            "ranges": [
+              60,
+              85,
+              120
+            ]
+          },
+          {
+            "label": "乙組",
+            "value": 75,
+            "target": 100,
+            "ranges": [
+              60,
+              85,
+              120
+            ]
+          },
+          {
+            "label": "丙組",
+            "value": 110,
+            "target": 100,
+            "ranges": [
+              60,
+              85,
+              120
+            ]
+          }
+        ]
+      },
+      "sources": {
+        "source": "服務目標試算（虛構示意資料）",
+        "unit": "件",
+        "period": "本期"
+      }
+    },
+    {
+      "type": "evidence",
+      "kicker": "整體組成",
+      "claim": "線上是最大的服務管道",
+      "visual": {
+        "kind": "waffle",
+        "unit": "%",
+        "period": "本期",
+        "source": "服務管道試算（虛構示意資料）",
+        "categories": [
+          "線上",
+          "門市",
+          "電話",
+          "其他"
+        ],
+        "values": [
+          43,
+          27,
+          18,
+          12
+        ]
+      },
+      "sources": {
+        "source": "服務管道試算（虛構示意資料）",
+        "unit": "%",
+        "period": "本期"
+      }
+    },
+    {
+      "type": "evidence",
+      "kicker": "規模與組成",
+      "claim": "北區總量最大，各區管道組成也不同",
+      "visual": {
+        "kind": "mekko",
+        "unit": "件",
+        "period": "本期",
+        "source": "區域服務管道試算（虛構示意資料）",
+        "categories": [
+          "線上",
+          "門市",
+          "電話"
+        ],
+        "rows": [
+          {
+            "label": "北區",
+            "values": [
+              40,
+              20,
+              10
+            ]
+          },
+          {
+            "label": "中區",
+            "values": [
+              20,
+              30,
+              10
+            ]
+          },
+          {
+            "label": "南區",
+            "values": [
+              10,
+              10,
+              20
+            ]
+          }
+        ]
+      },
+      "sources": {
+        "source": "區域服務管道試算（虛構示意資料）",
+        "unit": "件",
+        "period": "本期"
+      }
+    },
+    {
+      "type": "evidence",
+      "kicker": "原因集中度",
+      "claim": "主要客訴集中在前三類",
+      "visual": {
+        "kind": "pareto",
+        "unit": "件",
+        "period": "本期",
+        "source": "客訴分類試算（虛構示意資料）",
+        "threshold": 0.8,
+        "rows": [
+          {
+            "label": "延遲",
+            "value": 40
+          },
+          {
+            "label": "錯件",
+            "value": 25
+          },
+          {
+            "label": "破損",
+            "value": 20
+          },
+          {
+            "label": "其他",
+            "value": 15
+          }
+        ]
+      },
+      "sources": {
+        "source": "客訴分類試算（虛構示意資料）",
+        "unit": "件",
+        "period": "本期"
+      }
+    },
+    {
+      "type": "evidence",
+      "kicker": "敏感度",
+      "claim": "需求量是結果最敏感的假設",
+      "visual": {
+        "kind": "tornado",
+        "unit": "百萬元",
+        "period": "下一期預估",
+        "source": "敏感度試算（虛構示意資料）",
+        "better": "higher",
+        "baseline": 100,
+        "rows": [
+          {
+            "label": "需求量",
+            "low": 80,
+            "high": 130
+          },
+          {
+            "label": "售價",
+            "low": 90,
+            "high": 120
+          },
+          {
+            "label": "成本",
+            "low": 95,
+            "high": 105
+          }
+        ]
+      },
+      "sources": {
+        "source": "敏感度試算（虛構示意資料）",
+        "unit": "百萬元",
+        "period": "下一期預估"
+      }
+    },
+    {
+      "type": "evidence",
+      "kicker": "組內分布",
+      "claim": "甲組作業時間較分散且有離群值",
+      "visual": {
+        "kind": "box",
+        "unit": "分鐘",
+        "period": "本期抽樣",
+        "source": "作業時間抽樣（虛構示意資料）",
+        "groups": [
+          {
+            "label": "甲組",
+            "values": [
+              4,
+              6,
+              7,
+              8,
+              9,
+              11,
+              20
+            ]
+          },
+          {
+            "label": "乙組",
+            "values": [
+              3,
+              5,
+              6,
+              7,
+              9,
+              10,
+              12
+            ]
+          }
+        ]
+      },
+      "sources": {
+        "source": "作業時間抽樣（虛構示意資料）",
+        "unit": "分鐘",
+        "period": "本期抽樣"
+      }
+    },
+    {
+      "type": "evidence",
+      "kicker": "等級分布",
+      "claim": "滿意是最多的回應等級",
+      "visual": {
+        "kind": "ordered",
+        "unit": "人",
+        "period": "本期問卷",
+        "source": "服務滿意度問卷（虛構示意資料）",
+        "focus": "滿意",
+        "rows": [
+          {
+            "label": "非常不滿意",
+            "value": 5
+          },
+          {
+            "label": "不滿意",
+            "value": 10
+          },
+          {
+            "label": "普通",
+            "value": 20
+          },
+          {
+            "label": "滿意",
+            "value": 40
+          },
+          {
+            "label": "非常滿意",
+            "value": 25
+          }
+        ]
+      },
+      "sources": {
+        "source": "服務滿意度問卷（虛構示意資料）",
+        "unit": "人",
+        "period": "本期問卷"
+      }
+    }
+  ]
+}

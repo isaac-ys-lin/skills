@@ -1,0 +1,12 @@
+{
+  "kind": "mekko",
+  "unit": "件",
+  "period": "本期",
+  "source": "區域服務管道試算（虛構示意資料）",
+  "categories": ["線上", "門市", "電話"],
+  "rows": [
+    { "label": "北區", "values": [40, 20, 10] },
+    { "label": "中區", "values": [20, 30, 10] },
+    { "label": "南區", "values": [10, 10, 20] }
+  ]
+}

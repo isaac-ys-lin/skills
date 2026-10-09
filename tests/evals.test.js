@@ -65,6 +65,30 @@ test('visual 的巢狀數字與數字字串須有原稿依據', async () => {
   await assert.rejects(check(story(rank(-12)), '甲有 12 件。'), /value/);
 });
 
+test('十種新圖的數字欄位都須回到原稿', async () => {
+  const edits = {
+    grouped: (v) => { v.series[0].values[0] = 999; },
+    sharetrend: (v) => { v.rows[0].values[0] = 999; },
+    combo: (v) => { v.amounts[0] = 999; },
+    bullet: (v) => { v.rows[0].target = 999; },
+    waffle: (v) => { v.values[0] = 999; },
+    mekko: (v) => { v.rows[0].values[0] = 999; },
+    pareto: (v) => { v.rows[0].value = 999; },
+    tornado: (v) => { v.baseline = 999; },
+    box: (v) => { v.groups[0].values[0] = 999; },
+    ordered: (v) => { v.rows[0].value = 999; },
+  };
+  for (const [kind, edit] of Object.entries(edits)) {
+    const original = JSON.parse(readFileSync(new URL(`../examples/${kind}.json`, import.meta.url), 'utf8'));
+    const changed = structuredClone(original);
+    edit(changed);
+    await assert.rejects(check(story(changed), JSON.stringify(original)), /visual\..*999/, kind);
+  }
+  const pareto = JSON.parse(readFileSync(new URL('../examples/pareto.json', import.meta.url), 'utf8'));
+  pareto.threshold = 0.7;
+  await assert.rejects(check(story(pareto), JSON.stringify({ ...pareto, threshold: 0.8 })), /visual\.threshold.*0\.7/);
+});
+
 test('每個畫面文字欄位的數字都須有原稿依據', async () => {
   for (const field of ['claim', 'kicker', 'note']) {
     await assert.rejects(check(story(rank(12), { [field]: '共有 999 件' }), '甲有 12 件。'), new RegExp(`第 1 頁 ${field}.*999`));

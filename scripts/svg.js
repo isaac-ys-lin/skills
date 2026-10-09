@@ -531,6 +531,286 @@ DRAW.table = (m, W, H, warn) => {
   return P.join('');
 };
 
+DRAW.grouped = (m, W, H, warn) => {
+  const P = [];
+  const x0 = yLabelWidth(m.axis) + 12, x1 = W - 12, y0 = LINE + 18, y1 = H - LINE - 20;
+  const sy = scale(m.axis.lo, m.axis.hi, y1, y0);
+  yAxis(m.axis, sy, x0, x1, P);
+  const band = (x1 - x0) / m.x.length, gap = Math.min(8, band * 0.05);
+  const bw = (band * 0.76 - gap * (m.series.length - 1)) / m.series.length;
+  if (bw < 18 || m.x.some((s) => textWidth(s, PX) > band - 8)) warn('分組長條的項目太多，標籤可能擠在一起');
+  m.series.forEach((s, j) => {
+    const lx = x0 + j * (x1 - x0) / m.series.length;
+    P.push(rect(lx, 2, 16, 16, { fill: s.color }));
+    P.push(text(lx + 24, PX + 4, s.name, { fill: C.text }));
+  });
+  m.x.forEach((label, i) => {
+    const cx = x0 + band * (i + 0.5);
+    P.push(text(cx, y1 + T.stroke.axisTick + LINE * 0.8, label, { anchor: 'middle' }));
+    m.series.forEach((s, j) => {
+      const v = s.values[i];
+      if (v === null) return;
+      const bx = cx - (m.series.length * bw + (m.series.length - 1) * gap) / 2 + j * (bw + gap);
+      const ya = Math.min(sy(0), sy(v)), yb = Math.max(sy(0), sy(v));
+      P.push(rect(bx, ya, bw, Math.max(yb - ya, v === 0 ? 1 : 0), { fill: s.color }));
+      P.push(text(bx + bw / 2, v >= 0 ? ya - 8 : yb + PX + 2, s.texts[i], { fill: C.text, anchor: 'middle' }));
+    });
+  });
+  P.push(line(x0, sy(0), x1, sy(0)));
+  return P.join('');
+};
+
+DRAW.sharetrend = (m, W, H, warn) => {
+  const P = [];
+  let lx = 0;
+  for (const c of m.categories) {
+    P.push(rect(lx, 0, 16, 16, { fill: c.color }));
+    P.push(text(lx + 22, PX + 4, c.name, { fill: C.text }));
+    lx += 22 + textWidth(c.name, PX) + 26;
+  }
+  if (lx > W) warn('占比趨勢的類別標籤超出寬度');
+  const x0 = textWidth('100%', PX) + 18, x1 = W - 12, y0 = LINE + 18, y1 = H - LINE - 20;
+  const sy = scale(0, 1, y1, y0);
+  for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+    P.push(line(x0, sy(t), x1, sy(t), { stroke: C.grid, width: T.stroke.grid }));
+    P.push(text(x0 - 12, mid(sy(t)), `${Math.round(t * 100)}%`, { anchor: 'end' }));
+  }
+  const band = (x1 - x0) / m.rows.length, bw = Math.min(110, band * 0.65);
+  if (m.rows.some((r) => textWidth(r.label, PX) > band - 8)) warn('占比趨勢的期間標籤太擠');
+  const narrow = [];
+  m.rows.forEach((r, i) => {
+    const cx = x0 + band * (i + 0.5);
+    let acc = 0;
+    for (const s of r.segments) {
+      const lo = acc;
+      acc += s.share;
+      if (s.share <= 0) continue;
+      const top = sy(acc), h = sy(lo) - top;
+      P.push(rect(cx - bw / 2, top, bw, h, { fill: s.color }));
+      if (h >= PX + 8 && bw >= textWidth(s.text, PX) + 8) P.push(text(cx, mid(top + h / 2), s.text, { fill: s.ink ?? C.text, anchor: 'middle', on: s.color }));
+      else narrow.push(`${r.label} ${s.name}`);
+    }
+    P.push(text(cx, y1 + T.stroke.axisTick + LINE * 0.8, r.label, { anchor: 'middle' }));
+  });
+  if (narrow.length) warn(`區塊太窄沒有標百分比：${narrow.join('、')}，請在附註補充`);
+  return P.join('');
+};
+
+DRAW.combo = (m, W, H, warn) => {
+  const P = [];
+  const x0 = Math.max(yLabelWidth(m.amount.axis), yLabelWidth(m.rate.axis)) + 16, x1 = W - 16;
+  const top = { y0: LINE + 16, y1: H * 0.48 }, bottom = { y0: H * 0.59, y1: H - LINE - 18 };
+  const syA = scale(m.amount.axis.lo, m.amount.axis.hi, top.y1, top.y0);
+  const syR = scale(m.rate.axis.lo, m.rate.axis.hi, bottom.y1, bottom.y0);
+  const band = (x1 - x0) / m.x.length, bw = Math.min(70, band * 0.55);
+  const xs = m.x.map((_, i) => x0 + band * (i + 0.5));
+  yAxis(m.amount.axis, syA, x0, x1, P);
+  yAxis(m.rate.axis, syR, x0, x1, P);
+  P.push(text(x0, LINE * 0.8, m.amount.unit ?? '金額', { fill: C.text, weight: 600 }));
+  P.push(text(x0, bottom.y0 - 16, m.rate.unit ?? '比率', { fill: C.text, weight: 600 }));
+  m.amount.values.forEach((v, i) => {
+    if (v === null) return;
+    const ya = Math.min(syA(0), syA(v)), yb = Math.max(syA(0), syA(v));
+    P.push(rect(xs[i] - bw / 2, ya, bw, Math.max(yb - ya, v === 0 ? 1 : 0), { fill: C.focus }));
+    P.push(text(xs[i], v >= 0 ? ya - 8 : yb + PX + 2, m.amount.texts[i], { fill: C.text, anchor: 'middle' }));
+  });
+  P.push(line(x0, syA(0), x1, syA(0)));
+  for (const run of runs(m.rate.values, (v, i) => [xs[i], syR(v)])) {
+    if (run.length > 1) P.push(path(run, { stroke: C.focus, width: T.stroke.focusLine }));
+    for (const [x, y] of run) P.push(circle(x, y, 5, { fill: C.focus }));
+  }
+  m.rate.values.forEach((v, i) => {
+    if (v !== null) P.push(text(xs[i], syR(v) - 12, m.rate.texts[i], { fill: C.text, anchor: 'middle' }));
+  });
+  P.push(line(x0, syR(0), x1, syR(0)));
+  m.x.forEach((label, i) => P.push(text(xs[i], bottom.y1 + T.stroke.axisTick + LINE * 0.8, label, { anchor: 'middle' })));
+  if (m.x.some((s) => textWidth(s, PX) > band - 8)) warn('組合圖的期間標籤太擠');
+  return P.join('');
+};
+
+DRAW.bullet = (m, W, H, warn) => {
+  const P = [];
+  const labelW = Math.max(...m.rows.map((r) => textWidth(r.label, PX))) + 18;
+  const tailW = Math.max(...m.rows.map((r) => textWidth(r.delta?.text ?? '', PX))) + 20;
+  const x0 = labelW, x1 = W - tailW - 12, y1 = H - LINE - 16;
+  const sx = scale(m.axis.lo, m.axis.hi, x0, x1);
+  bottomAxis(m.axis, sx, y1, x0, x1, P);
+  const band = y1 / m.rows.length, bh = clamp(band * 0.32, 12, 38);
+  if (band < PX * 1.7) warn('實際與目標的列數太多，標籤可能擠在一起');
+  m.rows.forEach((r, i) => {
+    const cy = band * (i + 0.5);
+    P.push(text(0, mid(cy), r.label, { fill: C.text }));
+    if (r.ranges) {
+      const ends = [m.axis.lo, ...r.ranges];
+      ends.slice(1).forEach((e, j) => P.push(rect(sx(ends[j]), cy - bh, sx(e) - sx(ends[j]), bh * 2, { fill: [C.grid, C.other, C.gray][j] ?? C.grid })));
+    }
+    if (r.actual !== null) {
+      const xa = sx(Math.min(0, r.actual)), xb = sx(Math.max(0, r.actual));
+      P.push(rect(xa, cy - bh / 2, xb - xa, bh, { fill: C.focus }));
+      P.push(text(r.actual >= 0 ? xb + 8 : xa - 8, mid(cy), r.actualText, { fill: C.text, anchor: r.actual >= 0 ? 'start' : 'end' }));
+    }
+    if (r.target !== null) {
+      const tx = sx(r.target);
+      P.push(line(tx, cy - bh, tx, cy + bh, { stroke: C.text, width: 3 }));
+      P.push(text(tx, cy - bh - 8, r.targetText, { fill: C.textSecondary, anchor: 'middle' }));
+    }
+    if (r.delta) P.push(text(W, mid(cy), r.delta.text, { fill: r.delta.color, weight: 600, anchor: 'end' }));
+  });
+  P.push(line(sx(0), 0, sx(0), y1));
+  return P.join('');
+};
+
+DRAW.waffle = (m, W, H, warn) => {
+  const P = [];
+  if (!m.categories.length) return text(W / 2, mid(H / 2), '資料不完整，無法計算百格占比', { fill: C.textSecondary, anchor: 'middle' });
+  const gap = 3, side = Math.min((H - 12) / 10, (W * 0.55 - 12) / 10);
+  const gx = 0, gy = 2, x1 = side * 10;
+  let k = 0;
+  for (const c of m.categories) {
+    for (let j = 0; j < c.cells; j++, k++) {
+      const row = Math.floor(k / 10), col = k % 10; // fill from the top so the grid reads in legend order
+      P.push(rect(gx + col * side, gy + row * side, side - gap, side - gap, { fill: c.color }));
+    }
+  }
+  const lx = x1 + 32, band = H / m.categories.length;
+  if (m.categories.length * LINE * 1.4 > H) warn('百格圖的類別標籤太多，可能擠在一起');
+  m.categories.forEach((c, i) => {
+    const y = band * (i + 0.5);
+    P.push(rect(lx, y - 10, 18, 18, { fill: c.color }));
+    P.push(text(lx + 30, mid(y), c.name, { fill: C.text }));
+    P.push(text(W - 4, mid(y), c.text, { fill: C.text, weight: 600, anchor: 'end' }));
+  });
+  return P.join('');
+};
+
+DRAW.mekko = (m, W, H, warn) => {
+  const P = [];
+  const y0 = LINE + 18;
+  const omitted = (bottom) => m.columns.flatMap((col) => [
+    ...(col.width * W <= textWidth(col.totalText, PX) + 12 ? [`${col.label} 總量`] : []),
+    ...(col.width * W <= textWidth(col.label, PX) + 8 ? [`${col.label} 欄名`] : []),
+    ...col.segments.flatMap((s) => {
+      const label = `${s.name} ${s.text}`;
+      return s.share > 0 && (col.width * W <= textWidth(label, PX) + 12 || s.share * (bottom - y0) <= PX + 10)
+        ? [`${col.label} ${s.name}`] : [];
+    }),
+  ]);
+  let y1 = H - LINE - 20;
+  if (omitted(y1).length) y1 -= LINE * 1.2;
+  let x = 0;
+  const narrow = [];
+  m.columns.forEach((col) => {
+    const w = col.width * W;
+    if (w > textWidth(col.totalText, PX) + 12) P.push(text(x + w / 2, PX + 4, col.totalText, { fill: C.text, weight: 600, anchor: 'middle' }));
+    else narrow.push(`${col.label} 總量 ${col.totalText}`);
+    let acc = 0;
+    for (const s of col.segments) {
+      const h = s.share * (y1 - y0), top = y1 - (acc + s.share) * (y1 - y0);
+      acc += s.share;
+      if (h <= 0) continue;
+      // shortcut: 極小占比保留 0.5px 可見記號；要精確比較面積時改用表格。
+      P.push(rect(x + 1, top, Math.max(0, w - 2), Math.max(0.5, h - 1), { fill: s.color }));
+      const label = `${s.name} ${s.text}`;
+      if (w > textWidth(label, PX) + 12 && h > PX + 10) P.push(text(x + w / 2, mid(top + h / 2), label, { fill: s.ink ?? C.text, anchor: 'middle', on: s.color }));
+      else narrow.push(`${col.label} ${s.name}`);
+    }
+    if (w > textWidth(col.label, PX) + 8) P.push(text(x + w / 2, y1 + T.stroke.axisTick + LINE * 0.8, col.label, { anchor: 'middle' }));
+    else narrow.push(`${col.label} 欄名`);
+    x += w;
+  });
+  if (narrow.length) {
+    const note = `圖內未標：${narrow.join('、')}`;
+    P.push(text(0, H - 6, note, { fill: C.textSecondary }));
+    if (textWidth(note, PX) > W) warn('Marimekko 附註太長，請減少群體或類別');
+    warn(`區塊太窄沒有標完整數值：${narrow.join('、')}`);
+  }
+  return P.join('');
+};
+
+DRAW.pareto = (m, W, H, warn) => {
+  const P = [];
+  const x0 = yLabelWidth(m.axis) + 12, x1 = W - 12, y0 = LINE + 18, y1 = H - LINE - 20;
+  const sy = scale(m.axis.lo, m.axis.hi, y1, y0);
+  yAxis(m.axis, sy, x0, x1, P);
+  const band = (x1 - x0) / m.rows.length, bw = Math.min(100, band * 0.7);
+  const crossed = m.rows.findIndex((r) => r.cumulative >= m.threshold);
+  m.rows.forEach((r, i) => {
+    const cx = x0 + band * (i + 0.5), top = sy(r.value);
+    P.push(rect(cx - bw / 2, top, bw, y1 - top, { fill: r.color }));
+    P.push(text(cx, top - 8, `${r.text}｜${r.cumulativeText}`, { fill: C.text, anchor: 'middle' }));
+    P.push(text(cx, y1 + T.stroke.axisTick + LINE * 0.8, r.label, { anchor: 'middle' }));
+  });
+  if (crossed >= 0) {
+    const tx = x0 + band * (crossed + 1);
+    P.push(line(tx, y0, tx, y1, { stroke: C.text, dash: '6 4' }));
+    P.push(text(Math.min(tx + 8, x1), y0 - 8, `${m.thresholdText} 門檻`, { fill: C.text, anchor: tx + 150 > x1 ? 'end' : 'start' }));
+  }
+  if (m.rows.some((r) => textWidth(r.label, PX) > band - 8)) warn('帕累托圖的原因標籤太擠');
+  return P.join('');
+};
+
+DRAW.tornado = (m, W, H, warn) => {
+  const P = [];
+  const labelW = Math.max(...m.rows.map((r) => textWidth(r.label, PX))) + 20;
+  const valueW = Math.max(...m.rows.flatMap((r) => [r.lowText, r.highText].map((s) => textWidth(s, PX)))) + 16;
+  const x0 = labelW + valueW, x1 = W - valueW, y1 = H - LINE - 16;
+  const sx = scale(m.axis.lo, m.axis.hi, x0, x1), baseX = sx(m.base);
+  bottomAxis(m.axis, sx, y1, x0, x1, P);
+  const band = y1 / m.rows.length, bh = clamp(band * 0.25, 7, 22);
+  if (band < PX * 1.8) warn('龍捲風圖的假設太多，標籤可能擠在一起');
+  m.rows.forEach((r, i) => {
+    const cy = band * (i + 0.5);
+    P.push(text(0, mid(cy), r.label, { fill: C.text }));
+    for (const [v, t, c, dy] of [[r.low, r.lowText, r.lowColor, -bh / 2], [r.high, r.highText, r.highColor, bh / 2]]) {
+      const end = sx(v), xa = Math.min(baseX, end), xb = Math.max(baseX, end);
+      P.push(rect(xa, cy + dy - bh / 2, xb - xa, bh, { fill: c }));
+      P.push(text(end + (v >= m.base ? 8 : -8), mid(cy + dy), t, { fill: C.text, anchor: v >= m.base ? 'start' : 'end' }));
+    }
+  });
+  P.push(line(baseX, 0, baseX, y1, { stroke: C.text, width: 2 }));
+  P.push(text(baseX, PX, `基準 ${formatValue(m.base, { digits: m.digits })}`, { fill: C.text, anchor: 'middle' }));
+  return P.join('');
+};
+
+DRAW.box = (m, W, H, warn) => {
+  const P = [];
+  const labelW = Math.max(...m.groups.map((g) => textWidth(g.label, PX))) + 20;
+  const x0 = labelW, x1 = W - 28, y1 = H - LINE - 16;
+  const sx = scale(m.axis.lo, m.axis.hi, x0, x1);
+  bottomAxis(m.axis, sx, y1, x0, x1, P);
+  const band = y1 / m.groups.length, bh = clamp(band * 0.42, 18, 44);
+  m.groups.forEach((g, i) => {
+    const cy = band * (i + 0.5), color = m.groups.some((group) => group.focus) && !g.focus ? C.gray : C.focus;
+    P.push(text(0, mid(cy), g.label, { fill: C.text }));
+    P.push(line(sx(g.min), cy, sx(g.max), cy, { stroke: C.gray, width: T.stroke.otherLine }));
+    P.push(line(sx(g.min), cy - bh * 0.35, sx(g.min), cy + bh * 0.35, { stroke: C.gray, width: 2 }));
+    P.push(line(sx(g.max), cy - bh * 0.35, sx(g.max), cy + bh * 0.35, { stroke: C.gray, width: 2 }));
+    P.push(rect(sx(g.q1), cy - bh / 2, sx(g.q3) - sx(g.q1), bh, { fill: C.tint, stroke: color }));
+    P.push(line(sx(g.median), cy - bh / 2, sx(g.median), cy + bh / 2, { stroke: color, width: 3 }));
+    for (const v of g.outliers) P.push(circle(sx(v), cy, 5, { fill: C.onDark[0], stroke: color }));
+    P.push(text(sx(g.median), cy - bh / 2 - 8, g.texts[2], { fill: color, weight: 600, anchor: 'middle' }));
+  });
+  if (band < PX * 1.7) warn('箱型圖的群組太多，標籤可能擠在一起');
+  return P.join('');
+};
+
+DRAW.ordered = (m, W, H, warn) => {
+  const P = [];
+  const x0 = yLabelWidth(m.axis) + 12, x1 = W - 12, y0 = LINE + 8, y1 = H - LINE - 18;
+  const sy = scale(m.axis.lo, m.axis.hi, y1, y0);
+  yAxis(m.axis, sy, x0, x1, P);
+  const band = (x1 - x0) / m.rows.length, bw = Math.min(110, band * 0.7);
+  m.rows.forEach((r, i) => {
+    const cx = x0 + band * (i + 0.5), ya = Math.min(sy(0), sy(r.value)), yb = Math.max(sy(0), sy(r.value));
+    P.push(rect(cx - bw / 2, ya, bw, Math.max(yb - ya, r.value === 0 ? 1 : 0), { fill: r.color }));
+    P.push(text(cx, r.value >= 0 ? ya - 8 : yb + PX + 2, r.text, { fill: r.focus ? C.focus : C.text, weight: r.focus ? 600 : undefined, anchor: 'middle' }));
+    P.push(text(cx, y1 + T.stroke.axisTick + LINE * 0.8, r.label, { anchor: 'middle' }));
+  });
+  P.push(line(x0, sy(0), x1, sy(0)));
+  if (m.rows.some((r) => textWidth(r.label, PX) > band - 8)) warn('等級標籤太擠');
+  return P.join('');
+};
+
 function doc(width, height, body, font = FONT_FAMILY) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${font}">${body}</svg>`;
 }
@@ -594,7 +874,8 @@ function reportHeight(model) {
   const count = {
     rank: model.rows?.length, slope: model.rows?.length, share: model.rows?.length,
     strip: model.groups?.length, dumbbell: model.rows?.length, funnel: model.steps?.length,
-    heat: model.rowLabels?.length, table: model.rows?.length,
+    heat: model.rowLabels?.length, table: model.rows?.length, bullet: model.rows?.length,
+    tornado: model.rows?.length, box: model.groups?.length,
   }[model.kind];
   return count ? Math.max(360, 80 + count * 68) : 520;
 }

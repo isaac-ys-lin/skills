@@ -106,7 +106,7 @@ function contentTop(slide, ctx, color = C.title, ledeColor = C.textSecondary) {
 
 // ---- charts on evidence pages
 
-const NATIVE = new Set(['rank', 'line', 'slope', 'share', 'scatter', 'table']);
+const NATIVE = new Set(['rank', 'line', 'slope', 'share', 'scatter', 'table', 'grouped', 'sharetrend', 'ordered']);
 const position = ({ x, y, w, h }) => ({ x: inch(x), y: inch(y), w: inch(w), h: inch(h) });
 const xml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const numberFormat = (digits, percent = false, suffix = '') => {
@@ -123,6 +123,9 @@ function tinyValues(m) {
   const tiny = (v, digits) => /^[<>]/.test(formatValue(v, { digits }) ?? '');
   if (m.kind === 'scatter') return m.points.some((p) => tiny(p.x, decimalsOf(m.xAxis.ticks)) || tiny(p.y, decimalsOf(m.yAxis.ticks)));
   const values = m.kind === 'rank' ? m.rows.map((r) => r.value)
+    : m.kind === 'ordered' ? m.rows.map((r) => r.value)
+      : m.kind === 'grouped' ? m.series.flatMap((s) => s.values)
+        : m.kind === 'sharetrend' ? m.rows.flatMap((r) => r.segments.map((s) => s.share * 100))
     : m.kind === 'line' ? m.series.flatMap((s) => s.values)
       : m.kind === 'slope' ? m.rows.flatMap((r) => r.values)
         : m.kind === 'share' ? m.rows.flatMap((r) => r.segments.map((s) => s.share * 100)) : [];
@@ -178,6 +181,17 @@ function nativeChart(slide, m, area, ctx) {
     type = 'bar';
     data = [{ name: m.unit ?? '數值', labels: m.rows.map((r) => r.label), values: m.rows.map((r) => r.value) }];
     Object.assign(opts, { barDir: 'bar', catAxisOrientation: 'maxMin', catAxisCrossesAt: 'max', valAxisLabelPos: 'nextTo', chartColors: m.rows.map((r) => hex(r.color)), showValue: true, dataLabelPosition: 'outEnd' });
+  } else if (m.kind === 'ordered') {
+    type = 'bar';
+    data = [{ name: m.unit ?? '數值', labels: m.rows.map((r) => r.label), values: m.rows.map((r) => r.value) }];
+    Object.assign(opts, { barDir: 'col', barGrouping: 'clustered', showValue: true,
+      chartColors: m.rows.map((r) => hex(r.color)), dataLabelPosition: 'outEnd' });
+  } else if (m.kind === 'grouped') {
+    type = 'bar';
+    data = m.series.map((s) => ({ name: s.name, labels: m.x, values: [...s.values] }));
+    Object.assign(opts, { barDir: 'col', barGrouping: 'clustered', chartColors: m.series.map((s) => hex(s.color)),
+      showLegend: true, legendPos: 't', legendFontFace: SLIDE_FONT, legendFontSize: pt(LABEL), legendColor: hex(C.textSecondary),
+      showValue: true, dataLabelPosition: 'outEnd' });
   } else if (m.kind === 'line' || m.kind === 'slope') {
     type = 'line';
     data = m.kind === 'line' ? m.series.map((s) => ({ name: s.name, labels: m.x, values: [...s.values] }))
@@ -185,10 +199,11 @@ function nativeChart(slide, m, area, ctx) {
     Object.assign(opts, { chartColors: m.kind === 'line' ? m.series.map((s) => hex(s.color)) : m.rows.map(() => hex(C.gray)),
       lineDataSymbol: m.kind === 'slope' ? 'circle' : 'none' });
     if (m.kind === 'slope') Object.assign(opts, { valAxisHidden: true, valGridLine: { style: 'none' } });
-  } else if (m.kind === 'share') {
+  } else if (m.kind === 'share' || m.kind === 'sharetrend') {
     type = 'bar';
     data = m.categories.map((c, i) => ({ name: c.name, labels: m.rows.map((r) => r.label), values: m.rows.map((r) => r.segments[i].value) }));
-    Object.assign(opts, { barDir: 'bar', barGrouping: 'percentStacked', catAxisOrientation: 'maxMin', catAxisCrossesAt: 'max', valAxisLabelPos: 'nextTo',
+    Object.assign(opts, { barDir: m.kind === 'sharetrend' ? 'col' : 'bar', barGrouping: 'percentStacked',
+      ...(m.kind === 'share' ? { catAxisOrientation: 'maxMin', catAxisCrossesAt: 'max', valAxisLabelPos: 'nextTo' } : {}),
       chartColors: m.categories.map((c) => hex(c.other ? T.fill.other.native.color : c.color)),
       showLegend: true, legendPos: 't', legendFontFace: SLIDE_FONT, legendFontSize: pt(LABEL), legendColor: hex(C.textSecondary),
       valAxisMinVal: 0, valAxisMaxVal: 1, valAxisMajorUnit: 0.25, valAxisLabelFormatCode: numberFormat(0, true),
@@ -228,7 +243,7 @@ function chart(slide, spec, area, ctx) {
 // ---- layouts
 
 const LAYOUT = {};
-const CHART_KINDS = new Set(['rank', 'line', 'slope', 'share', 'scatter', 'table', 'multiples', 'bridge', 'histogram', 'strip', 'matrix', 'dumbbell', 'funnel', 'heat']);
+const CHART_KINDS = new Set(['rank', 'line', 'slope', 'share', 'scatter', 'table', 'multiples', 'bridge', 'histogram', 'strip', 'matrix', 'dumbbell', 'funnel', 'heat', 'grouped', 'sharetrend', 'combo', 'bullet', 'waffle', 'mekko', 'pareto', 'tornado', 'box', 'ordered']);
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
 const emptyCell = (v) => isObject(v) && Object.values(v).every((x) => x === null || x === undefined || x === '' || (Array.isArray(x) && !x.length));
@@ -851,7 +866,7 @@ function deckCategories(story) {
   for (const p of story.pages) {
     const v = p.visual;
     if (!v?.kind) continue;
-    const names = v.categories ?? (v.kind === 'line' && !v.focus ? v.series?.map((s) => s.name) : null) ?? [];
+    const names = v.categories ?? (v.kind === 'grouped' && v.seriesRole === 'categorical' || v.kind === 'line' && !v.focus ? v.series?.map((s) => s.name) : null) ?? [];
     for (const name of names) if (!seen.includes(name)) seen.push(name);
   }
   return seen;
@@ -912,16 +927,29 @@ function pointMarker(i, color) {
     + `<c:spPr><a:solidFill><a:srgbClr val="${hex(color)}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr></c:marker></c:dPt>`;
 }
 
+function pointFill(i, color) {
+  return `<c:dPt><c:idx val="${i}"/><c:spPr><a:solidFill><a:srgbClr val="${hex(color)}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr></c:dPt>`;
+}
+
 const excelCol = (n) => n > 26 ? excelCol(Math.floor((n - 1) / 26)) + excelCol((n - 1) % 26 + 1) : String.fromCharCode(64 + n);
 
 function patchChart(s, m) {
-  const formatCode = numberFormat(m.digits, m.kind === 'share');
+  const formatCode = numberFormat(m.digits, m.kind === 'share' || m.kind === 'sharetrend');
   let si = 0;
   s = s.replace(/<c:ser>[\s\S]*?<\/c:ser>/g, (ser) => {
     const i = si++;
     let labels = '', points = '';
     if (m.kind === 'rank') {
       labels = m.rows.map((r, j) => pointLabel(j, { color: r.focus ? C.focus : C.text, bold: r.focus, pos: 'outEnd', formatCode })).join('');
+    } else if (m.kind === 'ordered') {
+      labels = m.rows.flatMap((r, j) => r.value === null ? [] : [pointLabel(j, {
+        color: r.focus ? C.focus : C.text, bold: r.focus, pos: 'outEnd', formatCode,
+      })]).join('');
+      points = m.rows.map((r, j) => pointFill(j, r.color)).join('');
+    } else if (m.kind === 'grouped') {
+      labels = m.series[i].values.flatMap((v, j) => v === null ? [] : [pointLabel(j, {
+        color: C.text, pos: 'outEnd', formatCode,
+      })]).join('');
     } else if (m.kind === 'line') {
       const row = m.series[i];
       if (row.last >= 0) labels += pointLabel(row.last, { color: row.color, bold: row.focus, name: true, formatCode });
@@ -932,7 +960,7 @@ function patchChart(s, m) {
         labels += pointLabel(j, { name: j === 0, pos: j === 0 ? 'l' : 'r', formatCode });
         points += pointMarker(j, m.colors[j]);
       });
-    } else if (m.kind === 'share') {
+    } else if (m.kind === 'share' || m.kind === 'sharetrend') {
       const cat = m.categories[i];
       const ink = textOn(cat.other ? T.fill.other.native.color : cat.color);
       labels = m.rows.map((_, j) => pointLabel(j, { color: ink, pos: 'ctr', formatCode })).join('');
@@ -948,7 +976,7 @@ function patchChart(s, m) {
     if (defaults === undefined) defaults = `<c:numFmt formatCode="${xml(numberFormat(m.digits))}" sourceLinked="0"/><c:txPr>${labelStyle(C.text)}</c:txPr><c:showVal val="0"/><c:showSerName val="0"/>`;
     ser = ser.replace(/<c:dLbls>[\s\S]*?<\/c:dLbls>/g, '');
     // pptxgenjs writes dLbls before marker/dPt; OOXML requires marker, dPt, then dLbls.
-    ser = ser.replace(/<c:dPt>[\s\S]*?<\/c:dPt>/g, (p) => { points += p; return ''; });
+    ser = ser.replace(/<c:dPt>[\s\S]*?<\/c:dPt>/g, (p) => { if (m.kind !== 'ordered') points += p; return ''; });
     if (m.kind === 'line' || m.kind === 'slope') ser = ser.replace(/<c:invertIfNegative[^>]*\/>/, '');
     return ser.replace(/<c:(?:cat|xVal)>/, (tag) => `${points}<c:dLbls>${labels}${defaults}</c:dLbls>${tag}`);
   });
@@ -984,10 +1012,11 @@ async function shareWorkbook(inner, m) {
 }
 
 function workbookNumbers(s, m) {
-  const cols = m.kind === 'rank' ? [m.rows.map((r) => r.value)]
+  const cols = m.kind === 'rank' || m.kind === 'ordered' ? [m.rows.map((r) => r.value)]
+    : m.kind === 'grouped' ? m.series.map((r) => r.values)
     : m.kind === 'line' ? m.series.map((r) => r.values)
       : m.kind === 'slope' ? m.rows.map((r) => r.values)
-        : m.kind === 'share' ? m.categories.map((_, i) => m.rows.map((r) => r.segments[i].value))
+        : m.kind === 'share' || m.kind === 'sharetrend' ? m.categories.map((_, i) => m.rows.map((r) => r.segments[i].value))
           : [m.points.map((p) => p.x), m.points.map((p) => p.y)];
   const cells = new Map();
   cols.forEach((col, i) => col.forEach((v, j) => cells.set(`${excelCol(i + (m.kind === 'scatter' ? 1 : 2))}${j + 2}`, v)));
@@ -1038,7 +1067,7 @@ async function finish(buf, story, charts) {
     const inner = await JSZip.loadAsync(await zip.file(name).async('nodebuffer'));
     const model = bookModels.get(name);
     if (model) await patch(inner, 'xl/worksheets/sheet1.xml', (s) => workbookNumbers(s, model));
-    if (model?.kind === 'share') await shareWorkbook(inner, model);
+    if (model?.kind === 'share' || model?.kind === 'sharetrend') await shareWorkbook(inner, model);
     for (const sheet of Object.keys(inner.files).filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n))) {
       await patch(inner, sheet, (s) => s.replace(/<c\b[^>]*>\s*<v>\s*<\/v>\s*<\/c>/g, ''));
     }

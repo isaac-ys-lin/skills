@@ -276,8 +276,8 @@ function pairs(spec, m, { fromZero = false } = {}) {
 KINDS.slope = (spec, m) => pairs(spec, m);
 
 KINDS.share = (spec, m, opts) => {
-  need(Array.isArray(spec.categories) && spec.categories.length, 'share 需要 categories');
-  need(Array.isArray(spec.rows) && spec.rows.length, 'share 需要 rows');
+  need(Array.isArray(spec.categories) && spec.categories.length, `${spec.kind} 需要 categories`);
+  need(Array.isArray(spec.rows) && spec.rows.length, `${spec.kind} 需要 rows`);
   const { colors, folded } = categoryColors(spec.categories, { order: opts.categoryOrder });
   if (folded.length) m.warnings.push(`超過 ${categoryLimit()} 類，「${folded.join('、')}」併入「其他」`);
   const ranked = [...(opts.categoryOrder ?? []), ...spec.categories];
@@ -286,8 +286,8 @@ KINDS.share = (spec, m, opts) => {
   m.categories = [...kept, ...(colors.has(OTHER) ? [OTHER] : [])].map((name) => ({ name, color: colors.get(name), other: name === OTHER }));
   m.rows = spec.rows.flatMap((r) => {
     need(typeof r.label === 'string' && Array.isArray(r.values) && r.values.length === spec.categories.length && r.values.every(numOrNull),
-      `share 的資料格式不對：${JSON.stringify(r)}`);
-    need(r.values.every((v) => v === null || v >= 0), `share 不能有負值：${r.label}`);
+      `${spec.kind} 的資料格式不對：${JSON.stringify(r)}`);
+    need(r.values.every((v) => v === null || v >= 0), `${spec.kind} 不能有負值：${r.label}`);
     const gaps = spec.categories.filter((c, i) => r.values[i] === null);
     if (gaps.length) {
       // A missing share makes the rest look like 100%; leave the row out and say why.
@@ -312,7 +312,7 @@ KINDS.share = (spec, m, opts) => {
       })),
     }];
   });
-  need(m.rows.length, 'share 沒有完整的一列可以畫');
+  need(m.rows.length, `${spec.kind} 沒有完整的一列可以畫`);
   return m;
 };
 
@@ -532,5 +532,245 @@ KINDS.table = (spec, m) => {
     m.rows.push({ cells: cells(spec.total, spec.total[0] == null ? '總計' : String(spec.total[0])), emphasis: false, total: true, fill: null, bold: false });
   }
   if (spec.emphasis && !m.rows.some((r) => r.emphasis)) m.warnings.push(`emphasis「${spec.emphasis}」不在資料裡`);
+  return m;
+};
+
+// One category position is retained for every input value, including null.
+KINDS.grouped = (spec, m, opts) => {
+  need(Array.isArray(spec.x) && spec.x.length && spec.x.every((x) => typeof x === 'string'), 'grouped 需要 x 類別名稱');
+  need(Array.isArray(spec.series) && spec.series.length >= 2 && spec.series.length <= 4, 'grouped 需要 2～4 個 series');
+  need(spec.seriesRole === undefined || ['ordered', 'categorical'].includes(spec.seriesRole), 'grouped 的 seriesRole 只能是 ordered 或 categorical');
+  need(spec.series.every((s) => s && typeof s.name === 'string'), 'grouped 的每個系列都需要名稱');
+  need(new Set(spec.series.map((s) => s.name)).size === spec.series.length, 'grouped 的系列名稱不可重複');
+  m.seriesRole = spec.seriesRole ?? 'ordered';
+  m.x = spec.x;
+  const cats = m.seriesRole === 'categorical' ? categoryColors(spec.series.map((s) => s.name), { order: opts.categoryOrder }) : null;
+  if (cats?.folded.length) m.warnings.push(`系列超過 ${categoryLimit()} 色，「${cats.folded.join('、')}」改用灰色`);
+  m.series = spec.series.map((s, j) => {
+    need(typeof s.name === 'string' && Array.isArray(s.values) && s.values.length === m.x.length && s.values.every(numOrNull), `grouped 的系列「${s.name}」長度或數值不對`);
+    s.values.forEach((v, i) => { if (v === null) m.missing.push(`${s.name}／${m.x[i]}`); });
+    const color = m.seriesRole === 'ordered'
+      ? C.ordered[Math.round(j * (C.ordered.length - 1) / (spec.series.length - 1))]
+      : cats.colors.get(s.name) ?? C.other;
+    return { name: s.name, values: s.values, texts: s.values.map(fmt(m)), color };
+  });
+  const nums = m.series.flatMap((s) => s.values).filter(isNum);
+  need(nums.length, 'grouped 沒有任何數值');
+  m.rows = m.x.map((label, i) => ({ label, values: m.series.map((s) => s.values[i]), texts: m.series.map((s) => s.texts[i]) }));
+  m.axis = niceTicks(Math.min(0, ...nums), Math.max(0, ...nums), 4);
+  return m;
+};
+
+KINDS.sharetrend = (spec, m, opts) => {
+  need(Array.isArray(spec.rows) && spec.rows.length >= 2, 'sharetrend 需要至少兩期 rows');
+  need(Array.isArray(spec.categories) && spec.categories.length && spec.categories.every((c) => typeof c === 'string'), 'sharetrend 需要 categories 類別名稱');
+  need(new Set(spec.categories).size === spec.categories.length, 'sharetrend 的類別名稱不可重複');
+  need(spec.rows.every((r) => r && typeof r.label === 'string'), 'sharetrend 的每一期都需要名稱');
+  KINDS.share(spec, m, opts);
+  m.x = m.rows.map((r) => r.label);
+  return m;
+};
+
+KINDS.combo = (spec, m) => {
+  need(Array.isArray(spec.x) && spec.x.length >= 2 && spec.x.every((x) => typeof x === 'string'), 'combo 需要至少兩個 x 期間');
+  need(Array.isArray(spec.amounts) && Array.isArray(spec.rates)
+    && spec.amounts.length === spec.x.length && spec.rates.length === spec.x.length
+    && spec.amounts.every(numOrNull) && spec.rates.every(numOrNull), 'combo 的 amounts、rates 長度或數值不對');
+  m.x = spec.x;
+  for (const [name, values, unit] of [['amount', spec.amounts, spec.amountUnit ?? m.unit], ['rate', spec.rates, spec.rateUnit ?? '%']]) {
+    values.forEach((v, i) => { if (v === null) m.missing.push(`${m.x[i]}／${name === 'amount' ? '金額' : '比率'}`); });
+    const nums = values.filter(isNum);
+    need(nums.length, `combo 的${name === 'amount' ? '金額' : '比率'}沒有任何數值`);
+    m[name] = { values, texts: values.map(fmt(m)), axis: niceTicks(Math.min(0, ...nums), Math.max(0, ...nums), 3), unit };
+  }
+  return m;
+};
+
+KINDS.bullet = (spec, m) => {
+  need(Array.isArray(spec.rows) && spec.rows.length, 'bullet 需要 rows');
+  m.rows = [];
+  for (const r of spec.rows) {
+    need(r && typeof r.label === 'string' && numOrNull(r.value) && numOrNull(r.target), `bullet 的資料格式不對：${JSON.stringify(r)}`);
+    need(r.ranges === undefined || (Array.isArray(r.ranges) && r.ranges.length === 3
+      && r.ranges.every(isNum) && r.ranges.every((v, i) => i === 0 || v >= r.ranges[i - 1])), `bullet「${r.label}」的 ranges 需要三個遞增界線`);
+    if (r.value === null || r.target === null) {
+      if (r.value === null) m.missing.push(`${r.label}／實際`);
+      if (r.target === null) m.missing.push(`${r.label}／目標`);
+      continue;
+    }
+    m.rows.push({ label: r.label, actual: r.value, target: r.target, actualText: fmt(m)(r.value), targetText: fmt(m)(r.target),
+      delta: delta(r.target, r.value, { better: m.better, digits: m.digits }), ranges: r.ranges ?? null });
+  }
+  need(m.rows.length, 'bullet 沒有完整的一列可以畫');
+  const nums = m.rows.flatMap((r) => [r.actual, r.target, ...(r.ranges ?? [])]);
+  m.axis = niceTicks(Math.min(0, ...nums), Math.max(0, ...nums), 4);
+  return m;
+};
+
+KINDS.waffle = (spec, m, opts) => {
+  need(Array.isArray(spec.categories) && spec.categories.length && spec.categories.every((c) => typeof c === 'string'), 'waffle 需要 categories');
+  need(new Set(spec.categories).size === spec.categories.length, 'waffle 的類別名稱不可重複');
+  need(Array.isArray(spec.values) && spec.values.length === spec.categories.length && spec.values.every(numOrNull), 'waffle 的 values 長度或數值不對');
+  need(spec.values.every((v) => v === null || v >= 0), 'waffle 不能有負值');
+  spec.values.forEach((v, i) => { if (v === null) m.missing.push(spec.categories[i]); });
+  m.categories = [];
+  if (m.missing.length) {
+    m.warnings.push('類別缺值，無法計算完整的 100 格');
+    return m;
+  }
+  const { colors, folded } = categoryColors(spec.categories, { order: opts.categoryOrder });
+  if (folded.length) m.warnings.push(`超過 ${categoryLimit()} 類，「${folded.join('、')}」併入「其他」`);
+  const ranked = [...(opts.categoryOrder ?? []), ...spec.categories];
+  const names = [...spec.categories.filter((c) => c !== OTHER && colors.has(c)).sort((a, b) => ranked.indexOf(a) - ranked.indexOf(b)), ...(colors.has(OTHER) ? [OTHER] : [])];
+  const sums = new Map(names.map((name) => [name, 0]));
+  spec.categories.forEach((name, i) => {
+    const key = name !== OTHER && colors.has(name) ? name : OTHER;
+    sums.set(key, sums.get(key) + spec.values[i]);
+  });
+  const values = names.map((name) => sums.get(name));
+  const fractions = shares(values);
+  const cells = fractions.map((v) => Math.floor(v * 100));
+  const remainder = 100 - cells.reduce((a, b) => a + b, 0);
+  [...fractions.keys()].sort((a, b) => (fractions[b] * 100 - cells[b]) - (fractions[a] * 100 - cells[a]) || a - b)
+    .slice(0, remainder).forEach((i) => { cells[i] += 1; });
+  m.categories = names.map((name, i) => ({ name, value: values[i], share: fractions[i], cells: cells[i],
+    text: formatValue(fractions[i] * 100, { digits: m.digits, suffix: '%' }), color: colors.get(name), ink: textOn(colors.get(name)) }));
+  return m;
+};
+
+KINDS.mekko = (spec, m, opts) => {
+  need(Array.isArray(spec.categories) && spec.categories.length && spec.categories.every((c) => typeof c === 'string'), 'mekko 需要 categories');
+  need(new Set(spec.categories).size === spec.categories.length, 'mekko 的類別名稱不可重複');
+  need(Array.isArray(spec.rows) && spec.rows.length, 'mekko 需要 rows');
+  const { colors, folded } = categoryColors(spec.categories, { order: opts.categoryOrder });
+  if (folded.length) m.warnings.push(`超過 ${categoryLimit()} 類，「${folded.join('、')}」併入「其他」`);
+  const ranked = [...(opts.categoryOrder ?? []), ...spec.categories];
+  const names = [...spec.categories.filter((c) => c !== OTHER && colors.has(c)).sort((a, b) => ranked.indexOf(a) - ranked.indexOf(b)), ...(colors.has(OTHER) ? [OTHER] : [])];
+  m.categories = names.map((name) => ({ name, color: colors.get(name) }));
+  m.columns = [];
+  for (const r of spec.rows) {
+    need(r && typeof r.label === 'string' && Array.isArray(r.values) && r.values.length === spec.categories.length && r.values.every(numOrNull), `mekko「${r?.label ?? '未命名'}」的 values 長度或數值不對`);
+    need(r.values.every((v) => v === null || v >= 0), `mekko「${r.label}」不能有負值`);
+    const gaps = spec.categories.filter((_, i) => r.values[i] === null);
+    if (gaps.length) { m.missing.push(...gaps.map((name) => `${r.label} ${name}`)); continue; }
+    const sum = new Map(names.map((name) => [name, 0]));
+    spec.categories.forEach((name, i) => {
+      const key = name !== OTHER && colors.has(name) ? name : OTHER;
+      sum.set(key, sum.get(key) + r.values[i]);
+    });
+    const total = r.values.reduce((a, b) => a + b, 0);
+    if (total === 0) { m.warnings.push(`「${r.label}」總量為 0，無法畫欄寬`); continue; }
+    m.columns.push({ label: r.label, total, totalText: fmt(m)(total), segments: names.map((name) => {
+      const value = sum.get(name), share = value / total, color = colors.get(name);
+      return { name, value, share, text: formatValue(share * 100, { digits: m.digits, suffix: '%' }), color, ink: textOn(color) };
+    }) });
+  }
+  need(m.columns.length, 'mekko 沒有完整且總量大於 0 的欄位');
+  const all = m.columns.reduce((a, c) => a + c.total, 0);
+  m.columns.forEach((c) => { c.width = c.total / all; });
+  return m;
+};
+
+KINDS.pareto = (spec, m) => {
+  need(Array.isArray(spec.rows) && spec.rows.length, 'pareto 需要 rows');
+  need(spec.threshold === undefined || (isNum(spec.threshold) && spec.threshold > 0 && spec.threshold <= 1), 'pareto 的 threshold 必須大於 0 且不超過 1');
+  m.threshold = spec.threshold ?? 0.8;
+  m.rows = spec.rows.flatMap((r) => {
+    need(r && typeof r.label === 'string' && numOrNull(r.value) && !(r.value < 0), `pareto「${r?.label ?? '未命名'}」需要非負數值`);
+    if (r.value === null) { m.missing.push(r.label); return []; }
+    return [{ label: r.label, value: r.value, text: fmt(m)(r.value) }];
+  }).sort((a, b) => b.value - a.value);
+  const total = m.rows.reduce((a, r) => a + r.value, 0);
+  need(total > 0, 'pareto 的數值總和必須大於 0');
+  if (m.missing.length) m.warnings.push('部分原因缺值，累積占比只依已知數值計算');
+  let sum = 0;
+  m.crossing = -1;
+  m.rows.forEach((r, i) => {
+    sum += r.value;
+    r.cumulative = sum / total;
+    r.cumulativeText = `累積 ${formatValue(r.cumulative * 100, { digits: m.digits, suffix: '%' })}`;
+    if (m.crossing < 0 && r.cumulative >= m.threshold) m.crossing = i;
+  });
+  m.rows.forEach((r, i) => { r.color = i <= m.crossing ? C.focus : C.gray; });
+  m.thresholdText = formatValue(m.threshold * 100, { digits: m.digits, suffix: '%' });
+  m.axis = niceTicks(0, m.rows[0].value, 4);
+  return m;
+};
+
+KINDS.tornado = (spec, m) => {
+  need(isNum(spec.baseline), 'tornado 需要數字 baseline');
+  need(Array.isArray(spec.rows) && spec.rows.length, 'tornado 需要 rows');
+  m.base = spec.baseline;
+  m.rows = spec.rows.flatMap((r) => {
+    need(r && typeof r.label === 'string' && numOrNull(r.low) && numOrNull(r.high), `tornado「${r?.label ?? '未命名'}」的 low、high 數值不對`);
+    if (r.low === null || r.high === null) {
+      if (r.low === null) m.missing.push(`${r.label}／低情境`);
+      if (r.high === null) m.missing.push(`${r.label}／高情境`);
+      return [];
+    }
+    const colorOf = (v, role) => spec.better === undefined ? (role === 'high' ? C.focus : C.gray)
+      : v === m.base ? C.gray : (v > m.base) === (m.better !== 'lower') ? C.better : C.worse;
+    return [{ label: r.label, low: r.low, high: r.high, lowText: fmt(m)(r.low), highText: fmt(m)(r.high),
+      lowColor: colorOf(r.low, 'low'), highColor: colorOf(r.high, 'high'), impact: Math.abs(r.high - r.low) }];
+  }).sort((a, b) => b.impact - a.impact);
+  need(m.rows.length, 'tornado 沒有完整的一列可以畫');
+  m.axis = niceTicks(Math.min(m.base, ...m.rows.flatMap((r) => [r.low, r.high])), Math.max(m.base, ...m.rows.flatMap((r) => [r.low, r.high])), 4);
+  return m;
+};
+
+const median = (sorted) => !sorted.length ? null : sorted.length % 2 ? sorted[(sorted.length - 1) / 2]
+  : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+
+KINDS.box = (spec, m) => {
+  need(Array.isArray(spec.groups) && spec.groups.length, 'box 需要 groups');
+  m.groups = [];
+  for (const g of spec.groups) {
+    need(g && typeof g.label === 'string' && ((Array.isArray(g.values) && g.values.every(numOrNull))
+      || (Array.isArray(g.summary) && g.summary.length === 5 && g.summary.every(isNum))), `box「${g?.label ?? '未命名'}」需要 values 或五數 summary`);
+    need(!(g.values && g.summary), `box「${g.label}」不能同時提供 values 與 summary`);
+    let min, q1, mid, q3, max, outliers;
+    if (g.values) {
+      const vals = g.values.filter(isNum).sort((a, b) => a - b);
+      if (vals.length !== g.values.length) m.missing.push(`${g.label} ${g.values.length - vals.length} 筆`);
+      if (!vals.length) continue;
+      if (vals.length < 5) m.warnings.push(`「${g.label}」觀察值少於 5 筆，四分位數不穩定`);
+      mid = median(vals);
+      const half = Math.floor(vals.length / 2);
+      q1 = median(vals.slice(0, half)) ?? mid;
+      q3 = median(vals.slice(vals.length - half)) ?? mid;
+      const fenceLo = q1 - 1.5 * (q3 - q1), fenceHi = q3 + 1.5 * (q3 - q1);
+      min = vals.find((v) => v >= fenceLo) ?? vals[0];
+      max = vals.findLast((v) => v <= fenceHi) ?? vals.at(-1);
+      outliers = vals.filter((v) => v < min || v > max);
+    } else {
+      [min, q1, mid, q3, max] = g.summary;
+      need(min <= q1 && q1 <= mid && mid <= q3 && q3 <= max, `box「${g.label}」的 summary 必須由小到大`);
+      need(g.outliers === undefined || (Array.isArray(g.outliers) && g.outliers.every(isNum)), `box「${g.label}」的 outliers 必須是數字陣列`);
+      outliers = g.outliers ?? [];
+    }
+    m.groups.push({ label: g.label, min, q1, median: mid, q3, max, outliers,
+      texts: [min, q1, mid, q3, max].map(fmt(m)), focus: g.label === spec.focus });
+  }
+  need(m.groups.length, 'box 沒有任何數值');
+  if (spec.focus && !m.groups.some((g) => g.focus)) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
+  const nums = m.groups.flatMap((g) => [g.min, g.max, ...g.outliers]);
+  m.axis = niceTicks(Math.min(...nums), Math.max(...nums), 4);
+  return m;
+};
+
+KINDS.ordered = (spec, m) => {
+  need(Array.isArray(spec.rows) && spec.rows.length, 'ordered 需要 rows');
+  need(C.ordered.length >= 2, 'color.ordered 長度不足：至少需要 2 色');
+  m.rows = spec.rows.flatMap((r, i) => {
+    need(r && typeof r.label === 'string' && numOrNull(r.value), `ordered 的資料格式不對：${JSON.stringify(r)}`);
+    need(r.value === null || r.value >= 0, `ordered「${r.label}」的數量不能是負值`);
+    if (r.value === null) { m.missing.push(r.label); return []; }
+    return [{ label: r.label, value: r.value, text: fmt(m)(r.value), focus: r.label === spec.focus,
+      color: C.ordered[Math.round(i * (C.ordered.length - 1) / Math.max(1, spec.rows.length - 1))] }];
+  });
+  need(m.rows.length, 'ordered 沒有任何數值');
+  if (spec.focus && !m.rows.some((r) => r.focus)) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
+  const nums = m.rows.map((r) => r.value);
+  m.axis = niceTicks(Math.min(0, ...nums), Math.max(0, ...nums), 4);
   return m;
 };

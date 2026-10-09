@@ -1,6 +1,6 @@
 # 圖表選單：先決定要回答的問題
 
-把下列 spec 放進證據頁的 `visual`；版面結構見 [layouts.md](layouts.md)。這些是輸入欄位，`core.prepare()` 產生的 `axis`、`missing`、`warnings`、`text` 等結果不用自己填。範例數字都是虛構示意；製作簡報時以文字稿為準。
+目前有 23 種圖表與 1 種表格。把下列 spec 放進證據頁的 `visual`；版面結構見 [layouts.md](layouts.md)。這些是輸入欄位，`core.prepare()` 產生的 `axis`、`missing`、`warnings`、`text` 等結果不用自己填。範例數字都是虛構示意；製作簡報時以文字稿為準。
 
 ## 共通欄位與輸出
 
@@ -9,8 +9,9 @@
 - `better`：`higher` 或 `lower`，預設 `higher`；控制支援增減的圖表之增減標籤色，不改動正負號。
 - `unit`、`period`、`source`：獨立 SVG 的來源列。放進簡報後，每頁來源列改讀頁面的 `sources`，請另填 `sources.source`、`sources.unit`、`sources.period`。
 - 數值用 JSON 數字，缺值用 `null`，0 照常保留。缺值會自動列入證據頁來源列；表格會在原格寫「未提供」，其他圖種依圖種留白、斷線或略去。若缺值本身是論證重點，改用能在原格標示的數字、比較或表格版型。文字稿沒有可畫數字時，選非圖表版型。
-- 原生：`rank`、`line`、`slope`、`share`、`scatter` 是 PowerPoint 圖表，`table` 是 PowerPoint 表格。其餘為 SVG，簡報內附 PNG 後備。原生圖可加 `native: false` 改用 SVG；極小非零值若會顯示成 0，也會自動改 SVG 並警告。
-- 同類別整份簡報維持同色。`share` 超過可用類別色數的類別會合併為「其他」；無 `focus` 的多系列 `line` 超出可用色數者改用灰色，但不合併資料。可用色數取 `categoryRules.maxCategorical` 與 `categorical` 長度的較小值；預設為四色。看警告與預覽再決定是否調整。
+- 原生：`rank`、`line`、`slope`、`share`、`scatter`、`grouped`、`sharetrend`、`ordered` 是 PowerPoint 圖表，`table` 是 PowerPoint 表格。其餘為 SVG，簡報內附 PNG 後備。原生圖可加 `native: false` 改用 SVG；極小非零值若會顯示成 0，也會自動改 SVG 並警告。
+- 一張圖只有一個數值軸；`combo` 是上下對齊的兩張圖，各有自己的數值軸與單位，沒有雙軸圖。
+- 同類別整份簡報維持同色。`share`、`sharetrend`、`waffle`、`mekko` 超過可用類別色數的類別會合併為「其他」；無 `focus` 的多系列 `line` 超出可用色數者改用灰色，但不合併資料。可用色數取 `categoryRules.maxCategorical` 與 `categorical` 長度的較小值；預設為四色。看警告與圖面再決定是否調整。
 
 獨立圖表預覽指令（從 skill 根目錄執行）：
 
@@ -42,6 +43,24 @@ node scripts/png.js out/rank.svg out/rank.png
 - 常見錯誤：把新舊順序倒過來；下降代表改善卻沿用 `better: "higher"`；把百分比的百分點差誤寫成成長率。此圖的差額是新值減舊值，沒有 `mode` 欄位。
 - 最小範例：`{"kind":"dumbbell","periods":["調整前","調整後"],"better":"lower","rows":[{"label":"甲","values":[12,8]}]}`。完整檔：[examples/dumbbell.json](../examples/dumbbell.json)。
 
+### 分組長條 `grouped`
+
+用於比較各項目在不同期間或情境的大小；每組並排，適合看同一項目的差距。
+
+- 欄位：`x: [項目, ...]`、`series: [{name, values: [...]}]`（2～4 個系列，每組數值長度等於 `x`）；選用 `seriesRole: "ordered" | "categorical"`，預設 `ordered`。有先後的期間用 ordered 深淺，互斥情境用 categorical 類別色。缺值用 `null`，0 是實測值。
+- 輸出：原生群組長條；可設 `native: false` 用 SVG。
+- 常見錯誤：將不同單位放在同一數值軸；把情境當成先後期間；把缺值補 0。系列超過四個時應分頁或換圖。
+- 最小範例：`{"kind":"grouped","x":["甲","乙"],"series":[{"name":"前期","values":[8,10]},{"name":"本期","values":[12,9]}]}`。完整檔：[examples/grouped.json](../examples/grouped.json)。
+
+### 實際對目標 `bullet`
+
+用於逐項查看實際值離目標多遠；區間底可交代差、可、好三段標準。
+
+- 欄位：`rows: [{label, value, target, ranges?: [差上限, 可上限, 好上限]}]`；選用 `better`（`higher` 或 `lower`）。每列畫實際長條、目標刻度和差距；`ranges` 是遞增的數值界線，以灰階呈現。
+- 輸出：SVG。
+- 常見錯誤：把目標當成實績；不同列使用不同單位；`better: "lower"` 的指標仍以高於目標稱為改善。缺值應用 `null` 並核對來源列，0 不代表缺資料。
+- 最小範例：`{"kind":"bullet","rows":[{"label":"甲","value":92,"target":100,"ranges":[60,85,120]}]}`。完整檔：[examples/bullet.json](../examples/bullet.json)。
+
 ## 隨時間怎麼變、各組是否走同一方向？
 
 ### 折線 `line`
@@ -61,6 +80,15 @@ node scripts/png.js out/rank.svg out/rank.png
 - 輸出：SVG。
 - 常見錯誤：各系列時間點不同；格數過多。超過六格會警告，應看圖決定分頁或精簡。
 - 最小範例：`{"kind":"multiples","x":["上期","本期"],"series":[{"name":"甲","values":[8,12]},{"name":"乙","values":[10,9]}]}`。完整檔：[examples/multiples.json](../examples/multiples.json)。
+
+### 金額加比率 `combo`
+
+用於同時追蹤規模與比率，例如營收與年增率；上下兩張圖共用橫軸，上方長條、下方折線或點，各自只有一個數值軸。
+
+- 欄位：`x: [期間, ...]`、`amounts: [金額, ...]`、`rates: [比率, ...]`，兩組長度都等於 `x`；選用 `amountUnit`、`rateUnit`，並於來源列交代兩種單位。缺值用 `null`，不以 0 代替。
+- 輸出：SVG；上下兩張圖在原生 PowerPoint 中不易保持對齊，因此沒有原生版。
+- 常見錯誤：把兩種尺度硬疊在一張雙軸圖；比率的 0.08 與 8% 混用；把金額缺值當成零。比率輸入與 `rateUnit` 必須一致。
+- 最小範例：`{"kind":"combo","x":["上期","本期"],"amounts":[20,24],"rates":[4,8],"amountUnit":"百萬元","rateUnit":"%"}`。完整檔：[examples/combo.json](../examples/combo.json)。
 
 ### 斜率圖 `slope`
 
@@ -91,6 +119,42 @@ node scripts/png.js out/rank.svg out/rank.png
 - 常見錯誤：把總額當差額；把支出減少誤寫成負貢獻；期末數字與累計不合卻忽略原因。缺值會跳過該步並警告後續累計可能不對，需在來源列說明。`estimate` 只標示預估，數字仍須有來源。
 - 最小範例：`{"kind":"bridge","steps":[{"label":"期初","value":10,"total":true},{"label":"增加","value":3},{"label":"期末","value":13,"total":true}]}`。完整檔：[examples/bridge.json](../examples/bridge.json)。
 
+### 占比隨期間變化 `sharetrend`
+
+用於查看固定類別在各期的組成變化；輸入原始件數，程式逐期換算成 100% 堆疊直條。
+
+- 欄位：`categories: [類別, ...]`、`rows: [{label: 期別, values: [原始值, ...]}]`；每期數值長度等於類別數，非負且可為 `null`。任一類別缺值時略去整期，避免誤算 100%；超過可用類別色數會併成「其他」。
+- 輸出：原生圖表；原始值留在活頁簿，比例由活頁簿公式計算。可設 `native: false` 用 SVG。
+- 常見錯誤：將已算出的比例當作規模解讀；不同期間類別定義改變；缺值時只加總其餘類別；把原始值改成百分比後仍期待顯示總量。
+- 最小範例：`{"kind":"sharetrend","categories":["線上","門市"],"rows":[{"label":"前期","values":[30,70]},{"label":"本期","values":[45,55]}]}`。完整檔：[examples/sharetrend.json](../examples/sharetrend.json)。
+
+### 百格圖 `waffle`
+
+用於單一整體由哪些互斥部分組成，特別適合讓讀者感受大約幾成。
+
+- 欄位：`categories: [類別, ...]`、`values: [原始值, ...]`，順序與長度一致；有效值非負。程式用最大餘數法把占比分配成 10×10 共 100 格，類別與百分比直接標示；超過可用類別色數併成「其他」。
+- 輸出：SVG。
+- 常見錯誤：把可重複選取的答案當互斥組成；把 1 格視為精確的 1% 原始資料；0 或極小占比被整數格隱去後未看直接標示。缺值不要補 0，應先核對來源。
+- 最小範例：`{"kind":"waffle","categories":["甲","乙"],"values":[30,70]}`。完整檔：[examples/waffle.json](../examples/waffle.json)。
+
+### Marimekko `mekko`
+
+用於同時比較群體總規模與內部組成；欄寬表示各群總量占全體的比例，欄內色塊表示該群組成。
+
+- 欄位：`categories: [類別, ...]`、`rows: [{label: 群體, values: [原始值, ...]}]`；每列長度與 `categories` 相同，數值非負。直接標各群總量與夠寬色塊的段內百分比；窄段省略段內數字並在附註交代。類別超限時併入「其他」。
+- 輸出：SVG。
+- 常見錯誤：誤以為各欄等寬；只看色塊高度而忽略總量；把缺值群體算成完整占比。缺值應以 `null` 表示並查來源列。
+- 最小範例：`{"kind":"mekko","categories":["甲","乙"],"rows":[{"label":"北區","values":[30,10]},{"label":"南區","values":[10,20]}]}`。完整檔：[examples/mekko.json](../examples/mekko.json)。
+
+### 原因集中度 `pareto`
+
+用於檢查少數原因是否占大多數；長條按件數由大到小，累積占比寫在各長條上方。
+
+- 欄位：`rows: [{label, value}]`；選用 `threshold`（大於 0 且不超過 1，預設 `0.8`）。累積跨過門檻的位置畫垂直參考線；到達門檻的原因用 focus，其餘用 gray。全圖只有件數一個數值軸。
+- 輸出：SVG；上方累積標註與門檻線不以原生圖簡化。
+- 常見錯誤：將累積百分比當第二數值軸；未依件數排序就套用門檻；把負值當原因件數。缺值用 `null`，不等於 0。
+- 最小範例：`{"kind":"pareto","rows":[{"label":"甲","value":40},{"label":"乙","value":25},{"label":"丙","value":15}],"threshold":0.8}`。完整檔：[examples/pareto.json](../examples/pareto.json)。
+
 ## 資料分布如何、集中或分散在哪裡？
 
 ### 直方圖 `histogram`
@@ -111,6 +175,25 @@ node scripts/png.js out/rank.svg out/rank.png
 - 常見錯誤：輸入平均值卻聲稱展示個別觀測；用樣本數差異很大的組做未交代的比較。重複值的點會重疊，不能靠可見點數直接數樣本。
 - 最小範例：`{"kind":"strip","groups":[{"label":"甲","values":[3,5,8]},{"label":"乙","values":[4,6,9]}]}`。完整檔：[examples/strip.json](../examples/strip.json)。
 
+### 箱型圖 `box`
+
+用於比較各群典型值、離散範圍與離群值；逐筆資料可看形狀，需要精確個別點時用 `strip`。
+
+- 欄位：`groups: [{label, values: [逐筆觀察值, ...]}]`，或 `groups: [{label, summary: [最小值, 第一四分位, 中位數, 第三四分位, 最大值], outliers?: [離群值, ...]}]`。逐筆資料可含 `null`；少於五筆有效觀察會警告。
+- 算法：排序後取中位數；第一與第三四分位採 Tukey 半樣本中位數，奇數筆時先排除整體中位數。鬚伸到 `Q1 − 1.5×IQR` 與 `Q3 + 1.5×IQR` 範圍內最遠的實測值，其餘畫離群點。直接輸入五數摘要時，提供的最小與最大值作為鬚，額外離群值由 `outliers` 給出。
+- 輸出：SVG。
+- 常見錯誤：不同四分位算法混用；把離群值從原始資料刪掉；樣本太少卻宣稱分布穩定。0 是觀察值，缺值要標成 `null`。
+- 最小範例：`{"kind":"box","groups":[{"label":"甲","values":[4,6,7,8,9,11,20]}]}`。完整檔：[examples/box.json](../examples/box.json)。
+
+### 等級分布 `ordered`
+
+用於有自然順序的等級或區間，例如滿意度；保留輸入順序，不按件數重排。
+
+- 欄位：`rows: [{label, value}]`；選用 `focus`（等級名稱）。顏色使用 ordered 深淺，`focus` 可標出特定等級；值可為 `null`，0 保留為觀察值。
+- 輸出：原生長條；可設 `native: false` 用 SVG。
+- 常見錯誤：按件數排序，破壞等級意義；把名目分類誤當有序等級；將缺值補成 0。
+- 最小範例：`{"kind":"ordered","rows":[{"label":"低","value":8},{"label":"中","value":12},{"label":"高","value":10}],"focus":"中"}`。完整檔：[examples/ordered.json](../examples/ordered.json)。
+
 ### 熱度格 `heat`
 
 用於兩個分類維度的強弱分布，例如時段與區域；找集中處或空白處。
@@ -119,6 +202,17 @@ node scripts/png.js out/rank.svg out/rank.png
 - 輸出：SVG。
 - 常見錯誤：列欄轉置；填負值；將空值塗成最低階。色階從 0 到最大值等寬分箱，階數取 `heatmap.steps` 與 `ordered` 長度的較小值（預設五階），不能把它解讀為分位數或跨圖固定門檻。
 - 最小範例：`{"kind":"heat","rowLabels":["甲","乙"],"colLabels":["早","晚"],"values":[[2,5],[0,null]]}`。完整檔：[examples/heat.json](../examples/heat.json)。
+
+## 哪個假設最影響結果？
+
+### 敏感度龍捲風 `tornado`
+
+用於比較各項假設的低、高情境對同一結果的影響；依影響範圍由大到小排列。
+
+- 欄位：`baseline: 基準結果`、`rows: [{label, low, high}]`；選用 `better: "higher" | "lower"`，預設 `higher`。每列以基準中線為參照，向兩側畫低、高情境結果，顏色依好壞職務。
+- 輸出：SVG。
+- 常見錯誤：把 `low`、`high` 當成假設本身的數值，而非假設改變後的**結果**；不固定其他假設；低與高使用不同結果單位。缺值用 `null`，不要把未試算情境當作 0。
+- 最小範例：`{"kind":"tornado","baseline":100,"rows":[{"label":"需求量","low":80,"high":130},{"label":"售價","low":90,"high":120}],"better":"higher"}`。完整檔：[examples/tornado.json](../examples/tornado.json)。
 
 ## 兩個指標有何關係、該先做哪一項？
 

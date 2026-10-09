@@ -1,0 +1,12 @@
+{
+  "kind": "bullet",
+  "unit": "件",
+  "period": "本期",
+  "source": "服務目標試算（虛構示意資料）",
+  "better": "higher",
+  "rows": [
+    { "label": "甲組", "value": 92, "target": 100, "ranges": [60, 85, 120] },
+    { "label": "乙組", "value": 75, "target": 100, "ranges": [60, 85, 120] },
+    { "label": "丙組", "value": 110, "target": 100, "ranges": [60, 85, 120] }
+  ]
+}

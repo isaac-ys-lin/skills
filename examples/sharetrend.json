@@ -1,0 +1,11 @@
+{
+  "kind": "sharetrend",
+  "unit": "%",
+  "period": "前期至本期",
+  "source": "服務管道紀錄（虛構示意資料）",
+  "categories": ["線上", "門市", "電話"],
+  "rows": [
+    { "label": "前期", "values": [50, 30, 20] },
+    { "label": "本期", "values": [65, 25, 10] }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "kind": "ordered",
+  "unit": "人",
+  "period": "本期問卷",
+  "source": "服務滿意度問卷（虛構示意資料）",
+  "focus": "滿意",
+  "rows": [
+    { "label": "非常不滿意", "value": 5 },
+    { "label": "不滿意", "value": 10 },
+    { "label": "普通", "value": 20 },
+    { "label": "滿意", "value": 40 },
+    { "label": "非常滿意", "value": 25 }
+  ]
+}
