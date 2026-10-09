@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import JSZip from 'jszip';
 import { check } from '../evals/check.mjs';
+import { build } from '../scripts/pptx.js';
 
 const sources = { source: '虛構測試文字稿' };
 const story = (visual, extra = {}) => ({ title: '驗收測試', pages: [{
@@ -13,7 +14,7 @@ const rank = (value) => ({ kind: 'rank', rows: [{ label: '甲', value }] });
 const example = JSON.parse(readFileSync(new URL('../examples/story.json', import.meta.url), 'utf8'));
 const script = readFileSync(new URL('../evals/fixtures/example-script.md', import.meta.url), 'utf8');
 
-test('範例 story 與手寫稿可驗收並產生八頁 PowerPoint', async () => {
+test('範例通過驗收並建出八頁', async () => {
   const result = await check(example, script);
   assert.equal(result.pages, 8);
   assert.deepEqual(result.warnings, []);
@@ -21,10 +22,10 @@ test('範例 story 與手寫稿可驗收並產生八頁 PowerPoint', async () =>
   assert.equal(Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f)).length, 8);
 });
 
-test('CLI 可直接使用範例與 fixture，並回報建檔成功', () => {
+test('CLI 對範例回報通過', () => {
   const run = spawnSync(process.execPath, ['evals/check.mjs', 'examples/story.json', 'evals/fixtures/example-script.md'], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /通過.*8.*PowerPoint/);
+  assert.match(run.stdout, /通過：8 頁/);
 });
 
 test('缺 claim、來源或不合法的 visual 都有頁碼與修法', async () => {
@@ -141,3 +142,48 @@ test('警告照常通過、保留訊息供看圖判斷', async () => {
   const { warnings } = await check(story({ ...rank(12), focus: '不存在' }), '甲 12 件。');
   assert.ok(warnings.some((w) => w.includes('focus')));
 });
+
+const singlePage = (extra = {}) => ({ pages: [{ type: 'statement', claim: '稿', sources: { source: '稿' }, ...extra }] });
+
+test('算式拒絕非有限運算元、累加和與結果', async () => {
+  for (const notes of [
+    '計算:1e308+1e308=999',
+    '計算:1e308+1e308-1e308=999',
+    '計算:1e999=999',
+    '計算:1e308=1e999',
+  ]) {
+    await assert.rejects(check(singlePage({ claim: '999', notes }), '1e308'), /第 1 頁.*算式.*有限數字/);
+  }
+  await check(singlePage({ claim: '1e308', notes: '計算:1e308=1e308' }), '1e308');
+});
+
+test('百分比運算保留原稿單位，拒絕裸數洗值與漏寫百分號', async () => {
+  await assert.rejects(check(singlePage({ claim: '3200%', notes: '計算:32=3200%' }), '32%'), /算式.*不符/);
+  await check(singlePage({ claim: '40%', notes: '計算：32% + 8% = 40%' }), '32%；8%');
+  await check(singlePage({ claim: '40%', notes: '計算：32 + 8 = 40%' }), '32%；8%');
+  await check(singlePage({ claim: '40%', notes: '計算：0.32 + 0.08 = 40%' }), '32%；8%');
+  await check(singlePage({ claim: '40%', notes: '計算：32% + 8% = 40%' }), '0.32；0.08');
+  await assert.rejects(check(singlePage({ notes: '計算：32% + 8% = 40' }), '32%；8%'), /算式.*不符/);
+  await assert.rejects(check(singlePage({ notes: '計算：32 + 8 = 40' }), '32%；8%'), /算式.*不符/);
+});
+
+test('來源列的 source、unit、more 都核對，合法算式仍可顯示', async () => {
+  for (const field of ['more', 'source', 'unit']) {
+    const sources = { source: '稿', [field]: field === 'more' ? ['999'] : '999' };
+    await assert.rejects(check(singlePage({ sources }), '待查'), new RegExp(`sources\\.${field}.*999`));
+  }
+  await check(singlePage({ sources: { source: '稿', more: ['計算：12 + 8 = 20'] } }), '12；8');
+  await assert.rejects(check(singlePage({ sources: { source: '稿', more: ['計算：12 + 8 = 21'] } }), '12；8'), /算式.*不符/);
+});
+
+test('來源列合法算式的減號不是原稿負數，式外文字仍須核對', async () => {
+  await check(singlePage({ sources: { source: '稿', more: ['計算：800-1200=-400'] } }), '800；1200');
+  await check(singlePage({ sources: { source: '稿', more: ['計算：5--12=17'] } }), '5；-12');
+  await check(singlePage({ sources: { source: '稿', more: ['計算：12 -8 = 4'] } }), '12；8');
+  await check(singlePage({ sources: { source: '稿', more: ['計算：12 - - 8 = 20'] } }), '12；-8');
+  await check(singlePage({ sources: { source: '稿', more: ['計算：8 - 12 = - 4'] } }), '12；8');
+  await check(singlePage({ sources: { source: '稿', more: ['計算：32% -8% = 24%'] } }), '32%；8%');
+  await assert.rejects(check(singlePage({ sources: { source: '稿', more: ['計算：800-1200=-400；999'] } }), '800；1200'), /sources\.more\[0\].*999/);
+  await assert.rejects(check(singlePage({ claim: '-8', sources: { source: '稿', more: ['計算：12 -8 = 4'] } }), '12；8'), /claim.*-8/);
+});
+

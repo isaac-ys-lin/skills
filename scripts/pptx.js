@@ -19,7 +19,7 @@ const INNER = W - 2 * M.x;
 
 function text(slide, str, { x, y, w, h, px = LABEL, color = C.textSecondary, bold, align = 'left', valign = 'top', lineHeight = 1.2 } = {}) {
   if (str === '' || str === null || str === undefined) return;
-  slide.addText(str, {
+  slide.addText(String(str), {
     x: inch(x), y: inch(y), w: inch(w), h: inch(h), fontFace: SLIDE_FONT, fontSize: pt(px), color: hex(color),
     bold: !!bold, align, valign, margin: 0, lineSpacingMultiple: lineHeight, fit: 'none',
   });

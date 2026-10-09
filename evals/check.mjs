@@ -4,6 +4,7 @@ import { build, validateStory } from '../scripts/pptx.js';
 
 const normalize = (text) => String(text).normalize('NFKC').replaceAll('−', '-').replace(/百分之\s*([\d.]+)/g, '$1%');
 const literal = String.raw`(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?`;
+const calculationPattern = /(?:計算|算法)\s*:\s*([^\n;；。]+)/g;
 const token = (text) => {
   const value = Number(text.replace(/[,\s%]/g, ''));
   const valid = Number.isFinite(value) && !(value === 0 && /[1-9]/.test(text.split(/[eE]/)[0]));
@@ -16,18 +17,21 @@ function numbers(text) {
 }
 
 // Relative tolerance preserves real tiny observations: 1e-101 must never match zero.
-const equal = (a, b) => a === b || Math.abs(a - b) <= Number.EPSILON * 16 * Math.max(Math.abs(a), Math.abs(b));
+const equal = (a, b) => Number.isFinite(a) && Number.isFinite(b)
+  && (a === b || Math.abs(a - b) <= Number.EPSILON * 16 * Math.max(Math.abs(a), Math.abs(b)));
 const variants = (n) => n.percent ? [n.value, n.value / 100] : [n.value];
-const found = (n, allowed) => n.valid && allowed.some((a) => a.valid && (n.percent && a.percent
-  ? equal(n.value, a.value) : variants(n).some((v) => variants(a).some((x) => equal(v, x)))));
+const matches = (n, a) => n.valid && a.valid && (n.percent && a.percent
+  ? equal(n.value, a.value) : variants(n).some((v) => variants(a).some((x) => equal(v, x))));
+const found = (n, allowed) => allowed.some((a) => matches(n, a));
 
 function calculations(page, original, pageNo) {
   const text = normalize([...(Array.isArray(page.notes) ? page.notes : [page.notes ?? '']), ...(page.sources?.more ?? [])].join('\n'));
   // shortcut: explicit sums and differences only; extend the grammar when other arithmetic is needed.
   const signed = String.raw`[+-]?\s*${literal}\s*%?`;
   const allowed = [];
-  for (const match of text.matchAll(/(?:計算|算法)\s*:\s*([^\n;；。]+)/g)) {
+  for (const match of text.matchAll(calculationPattern)) {
     const expression = match[1].trim();
+    const nonfinite = () => { throw new Error(`第 ${pageNo} 頁算式「${expression}」的運算元、累加和與結果都必須是有限數字；請核對數值大小與單位。`); };
     const equation = expression.match(new RegExp(String.raw`^(.+?)\s*=\s*(${signed})$`, 'i'));
     const unsupported = () => { throw new Error(`第 ${pageNo} 頁算式「${expression}」格式不支援；請使用完整加減算式，例如「計算：1200 + 800 = 2000」，說明文字另以分號隔開。`); };
     if (!equation) unsupported();
@@ -36,13 +40,18 @@ function calculations(page, original, pageNo) {
       const term = rest.match(new RegExp(first ? String.raw`^(${signed})` : String.raw`^([+-])\s*(${signed})`, 'i'));
       if (!term) unsupported();
       const operand = token(term[first ? 1 : 2]);
+      if (!operand.valid) nonfinite();
       if (!found(operand, original)) throw new Error(`第 ${pageNo} 頁算式「${expression}」的 ${operand.text} 不在原稿；請使用文字稿中的運算元。`);
-      sum += operand.value / (operand.percent ? 100 : 1) * (!first && term[1] === '-' ? -1 : 1);
+      const percentage = original.find((a) => a.percent && matches(operand, a));
+      const value = operand.percent ? operand.value / 100 : percentage ? percentage.value / 100 : operand.value;
+      sum += value * (!first && term[1] === '-' ? -1 : 1);
+      if (!Number.isFinite(sum)) nonfinite();
       rest = rest.slice(term[0].length).trim();
       first = false;
     }
     const result = token(equation[2]);
-    if (!result.valid || !equal(sum, result.value / (result.percent ? 100 : 1))) {
+    if (!result.valid) nonfinite();
+    if (!equal(sum, result.value / (result.percent ? 100 : 1))) {
       throw new Error(`第 ${pageNo} 頁算式「${expression}」結果不符；請核對加減與百分比單位。`);
     }
     allowed.push(result);
@@ -50,12 +59,12 @@ function calculations(page, original, pageNo) {
   return allowed;
 }
 
-function visibleNumbers(value, path) {
-  if (typeof value === 'number' || typeof value === 'string') return numbers(value).map((n) => ({ ...n, path }));
-  if (Array.isArray(value)) return value.flatMap((v, i) => visibleNumbers(v, `${path}[${i}]`));
+function visibleText(value, path) {
+  if (typeof value === 'number' || typeof value === 'string') return [{ text: String(value), path }];
+  if (Array.isArray(value)) return value.flatMap((v, i) => visibleText(v, `${path}[${i}]`));
   if (!value || typeof value !== 'object') return [];
   // digits controls display precision; it is not a measured value or a visible label.
-  return Object.entries(value).flatMap(([key, v]) => key === 'digits' ? [] : visibleNumbers(v, `${path}.${key}`));
+  return Object.entries(value).flatMap(([key, v]) => key === 'digits' ? [] : visibleText(v, `${path}.${key}`));
 }
 
 export async function check(story, script) {
@@ -64,8 +73,10 @@ export async function check(story, script) {
   const original = numbers(script);
   if (original.some((n) => !n.valid)) throw new Error('原稿含無法以有限數字精確表示的數值；請核對科學記號或調整單位，保留原始資料。');
   for (const field of ['title', 'date']) {
-    for (const value of visibleNumbers(story[field], field)) {
-      if (!found(value, original)) throw new Error(`根層 ${value.path}：原稿找不到數字 ${value.text}；請改回原稿數字，未提供日期時省略 date。`);
+    for (const { text, path } of visibleText(story[field], field)) {
+      for (const value of numbers(text)) {
+        if (!found(value, original)) throw new Error(`根層 ${path}：原稿找不到數字 ${value.text}；請改回原稿數字，未提供日期時省略 date。`);
+      }
     }
   }
   for (const [i, page] of story.pages.entries()) {
@@ -80,11 +91,17 @@ export async function check(story, script) {
     const visible = [
       ...['claim', 'kicker', 'note'].map((field) => [field, page[field]]),
       ...['value', 'label', 'unit'].map((field) => [`metric.${field}`, page.metric?.[field]]),
+      // period holds date ranges such as 2025.01–2025.12; dates are reviewed by hand, not as measured values.
+      ...['source', 'unit', 'more'].map((field) => [`sources.${field}`, page.sources[field]]),
       ['visual', page.visual],
-    ].flatMap(([path, value]) => visibleNumbers(value, path));
-    for (const value of visible) {
-      if (!found(value, allowed)) {
-        throw new Error(`第 ${n} 頁 ${value.path}：原稿找不到數字 ${value.text}；請改回原稿數字，或在當頁 notes／sources.more 寫出可核對的加減算式（如「計算：1200 + 800 = 2000」）。`);
+    ].flatMap(([path, value]) => visibleText(value, path));
+    for (const { text, path } of visible) {
+      // 已驗算的片段由算式語法處理正負號，避免將減號誤認為原稿負數。
+      const unverified = path.startsWith('sources.more[') ? normalize(text).replace(calculationPattern, '') : text;
+      for (const value of numbers(unverified)) {
+        if (!found(value, allowed)) {
+          throw new Error(`第 ${n} 頁 ${path}：原稿找不到數字 ${value.text}；請改回原稿數字，或在當頁 notes／sources.more 寫出可核對的加減算式（如「計算：1200 + 800 = 2000」）。`);
+        }
       }
     }
   }
