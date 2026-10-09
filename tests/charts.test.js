@@ -4,7 +4,7 @@ import { readFileSync, globSync } from 'node:fs';
 import { T, C, contrast } from '../scripts/core.js';
 import { render, framed } from '../scripts/svg.js';
 
-const examples = globSync('examples/*.json').map((f) => [f, JSON.parse(readFileSync(f, 'utf8'))]);
+const examples = globSync('examples/*.json').map((f) => [f, JSON.parse(readFileSync(f, 'utf8'))]).filter(([, spec]) => spec.kind);
 const count = (svg, re) => (svg.match(re) ?? []).length;
 
 // ---- lessons, one chart at a time

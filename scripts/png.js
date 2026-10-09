@@ -1,7 +1,7 @@
 // SVG to PNG with resvg, using the system's PingFang so CJK labels match the slides.
 // node scripts/png.js in.svg out.png [--scale 2]
 // node scripts/png.js --sheet out.png [--width N --height N] examples/*.json   (contact sheet, two columns)
-import { readFileSync, writeFileSync, globSync } from 'node:fs';
+import { readFileSync, writeFileSync, globSync, existsSync } from 'node:fs';
 import { basename } from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
 import { FONT_FAMILY } from './core.js';
@@ -15,8 +15,10 @@ export function pingFang() {
   return pingFangPath;
 }
 
+const JHENGHEI = ['/Applications/Microsoft PowerPoint.app/Contents/Resources/DFonts/MSJH.ttf', '/Applications/Microsoft PowerPoint.app/Contents/Resources/DFonts/MSJHBD.ttf'];
+
 function resvg(svg, opts = {}) {
-  const fontFiles = pingFang() ? [pingFang()] : [];
+  const fontFiles = [pingFang(), ...JHENGHEI.filter((f) => existsSync(f))].filter(Boolean);
   return new Resvg(svg, { font: { loadSystemFonts: true, fontFiles, defaultFontFamily: 'PingFang TC' }, ...opts });
 }
 
@@ -25,9 +27,11 @@ export function svgToPng(svg, { scale = 1 } = {}) {
 }
 
 // Ink width of a label as rendered; used to calibrate textWidth().
-export function measureText(str, px) {
+export const hasJhengHei = () => existsSync(JHENGHEI[0]);
+
+export function measureText(str, px, font = FONT_FAMILY) {
   const esc = String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${px * str.length * 2}" height="${px * 2}" font-family="${FONT_FAMILY}"><text x="0" y="${px * 1.5}" font-size="${px}">${esc}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${px * str.length * 2}" height="${px * 2}" font-family="${font}"><text x="0" y="${px * 1.5}" font-size="${px}">${esc}</text></svg>`;
   return resvg(svg).getBBox().width;
 }
 

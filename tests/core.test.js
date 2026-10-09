@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   C, formatValue, delta, niceTicks, categoryColors, shares, textOn, heatBins, textWidth, contrast,
 } from '../scripts/core.js';
-import { measureText, pingFang } from '../scripts/png.js';
+import { measureText, pingFang, hasJhengHei } from '../scripts/png.js';
 
 test('formatValue: zero is a value, missing is not', () => {
   assert.equal(formatValue(0), '0');
@@ -122,5 +122,13 @@ test('textWidth estimate stays within 1.00–1.15× of measured ink width', { sk
     const real = measureText(s, 24);
     const ratio = est / real;
     assert.ok(ratio >= 1.0 && ratio <= 1.15, `${s}: estimate ${est.toFixed(1)} / measured ${real.toFixed(1)} = ${ratio.toFixed(3)}`);
+  }
+});
+
+// One estimator serves both fonts; slides use Microsoft JhengHei, which runs a few percent wider or narrower.
+test('textWidth estimate stays within 0.95–1.20× of Microsoft JhengHei', { skip: !hasJhengHei() && 'Office fonts not found' }, () => {
+  for (const s of samples) {
+    const ratio = textWidth(s, 24) / measureText(s, 24, 'Microsoft JhengHei');
+    assert.ok(ratio >= 0.95 && ratio <= 1.2, `${s}: ${ratio.toFixed(3)}`);
   }
 });

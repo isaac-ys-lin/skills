@@ -8,6 +8,8 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@resvg/resvg-js": "2.6.2"
+    "@resvg/resvg-js": "2.6.2",
+    "jszip": "3.10.1",
+    "pptxgenjs": "4.0.1"
   }
 }

@@ -6,6 +6,9 @@ export const T = tokens;
 export const C = tokens.color;
 export const FONT_FAMILY = [...tokens.font.latin, ...tokens.font.cjk, 'sans-serif']
   .map((f) => (f.includes(' ') ? `'${f}'` : f)).join(', ');
+// Inside PowerPoint every run uses Microsoft JhengHei: Windows has it and Office for Mac bundles it,
+// so slides and the charts embedded in them look the same on both.
+export const SLIDE_FONT = 'Microsoft JhengHei';
 const MINUS = '−';
 const OTHER = tokens.categoryRules.otherByName;
 

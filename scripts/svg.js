@@ -531,8 +531,8 @@ DRAW.table = (m, W, H, warn) => {
   return P.join('');
 };
 
-function doc(width, height, body) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${FONT_FAMILY}">${body}</svg>`;
+function doc(width, height, body, font = FONT_FAMILY) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${font}">${body}</svg>`;
 }
 
 // Chart area only — what a slide embeds. Size defaults to the evidence slot.
@@ -556,7 +556,7 @@ export function render(spec, opts = {}) {
   const width = opts.width ?? T.chartArea.evidence.width;
   const height = opts.height ?? T.chartArea.evidence.height;
   const body = draw(model, { width, height });
-  return { svg: doc(width, height, body), body, model, width, height };
+  return { svg: doc(width, height, body, opts.font), body, model, width, height };
 }
 
 // Source row under the chart for standalone output: thin rule with 9 ticks, then source｜unit｜period｜missing.
@@ -586,7 +586,7 @@ export function framed(spec, opts = {}) {
   if (row + 1 > T.sourceRow.maxLines) model.warnings.push(`來源列需要 ${row + 1} 行，超過 ${T.sourceRow.maxLines} 行`);
   const height = top + T.stroke.tickLong + 14 + (row + 1) * LINE + 8;
   const body = r.body + P.join('') + placed.join('');
-  return { ...r, svg: doc(W, height, body), body, height };
+  return { ...r, svg: doc(W, height, body, opts.font), body, height };
 }
 
 if (import.meta.main) {
