@@ -6,6 +6,7 @@ import { basename } from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
 import { C, FONT_FAMILY } from './core.js';
 import { framed } from './svg.js';
+import { isMain } from './main.js';
 
 let pingFangPath;
 export function pingFang() {
@@ -49,7 +50,7 @@ export function sheet(files, { columns = 2, gap = 64, size = {} } = {}) {
   return { svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" font-family="${FONT_FAMILY}"><rect width="${W}" height="${H}" fill="${C.onDark[0]}"/>${body}</svg>`, warnings };
 }
 
-if (import.meta.main) {
+if (isMain(import.meta.url)) {
   const args = process.argv.slice(2);
   if (args[0] === '--sheet') {
     const take = (flag) => { const i = args.indexOf(flag); return i < 0 ? undefined : Number(args.splice(i, 2)[1]); };

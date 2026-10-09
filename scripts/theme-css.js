@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { loadTokens } from './tokens.js';
+import { isMain } from './main.js';
 
 export function themeCss(tokens = loadTokens()) {
   const c = tokens.color;
@@ -100,7 +101,7 @@ export function replaceTheme(html, css = themeCss()) {
   return html.replace(pattern, (_, open, close) => `${open}\n${css}\n${close}`);
 }
 
-if (import.meta.main) {
+if (isMain(import.meta.url)) {
   const file = process.argv[2];
   try {
     if (file) writeFileSync(file, replaceTheme(readFileSync(file, 'utf8')));

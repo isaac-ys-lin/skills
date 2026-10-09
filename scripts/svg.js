@@ -3,6 +3,7 @@
 // node scripts/svg.js chart.json out.svg [--bare] [--width inches] [--height px]
 import { readFileSync, writeFileSync } from 'node:fs';
 import { T, C, FONT_FAMILY, prepare, formatValue, tickText, textWidth } from './core.js';
+import { isMain } from './main.js';
 
 const PX = T.type.label.px; // 24, the smallest text anywhere
 const LINE = Math.round(PX * 1.45);
@@ -880,7 +881,7 @@ function reportHeight(model) {
   return count ? Math.max(360, 80 + count * 68) : 520;
 }
 
-if (import.meta.main) {
+if (isMain(import.meta.url)) {
   const args = process.argv.slice(2);
   const flag = (name) => { const i = args.indexOf(name); return i < 0 ? undefined : args.splice(i, 2)[1] ?? ''; };
   const noFrame = args.includes('--no-frame') && args.splice(args.indexOf('--no-frame'), 1);

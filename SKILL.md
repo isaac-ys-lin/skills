@@ -29,7 +29,7 @@ description: "Clayprint 把文字稿做成簡報／PowerPoint 或連續閱讀的
 
 ## 流程
 
-以下指令從 skill 根目錄執行；需要 Node 24.2 以上，缺少 `node_modules` 時執行 `npm ci`。將 `story.json`、`script.md`、`deck.pptx` 換成本次檔名。
+以下指令從 skill 根目錄執行；需要 Node 22 以上，缺少 `node_modules` 時執行 `npm ci`。將 `story.json`、`script.md`、`deck.pptx` 換成本次檔名。
 
 1. 讀文字稿，確認聽眾、目的、可用數字、來源與資料缺口。
 2. 選合適的骨架，寫故事線和每頁一句結論。

@@ -6,6 +6,7 @@ import JSZip from 'jszip';
 import { T, C, SLIDE_FONT, delta, formatValue, textWidth, categoryLimit, categoryColors, prepare, decimalsOf, textOn } from './core.js';
 import { render } from './svg.js';
 import { svgToPng } from './png.js';
+import { isMain } from './main.js';
 
 // Design px → PowerPoint units. The spec is drawn at 1920×1080 = 13.333×7.5 in.
 const inch = (px) => px / T.slide.pxPerIn;
@@ -1083,7 +1084,7 @@ async function patch(zip, name, fn) {
   if (f) zip.file(name, fn(await f.async('string')));
 }
 
-if (import.meta.main) {
+if (isMain(import.meta.url)) {
   const [input, output] = process.argv.slice(2);
   if (!input || !output) {
     console.error('用法：node scripts/pptx.js story.json deck.pptx');

@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import JSZip from 'jszip';
+import { isMain } from './main.js';
 
 const local = (name) => name.split(':').at(-1);
 const decode = (s = '') => s.replace(/&(?:#x([\da-f]+)|#(\d+)|(amp|lt|gt|quot|apos));/gi,
@@ -180,7 +181,7 @@ export async function extract(input) {
   return ext === '.pptx' ? pptx(zip) : ext === '.docx' ? docx(zip) : xlsx(zip);
 }
 
-if (import.meta.main) {
+if (isMain(import.meta.url)) {
   const [input, output] = process.argv.slice(2);
   if (!input || !output) { console.error('用法：node scripts/extract.js 檔案 out.json'); process.exit(2); }
   try { writeFileSync(output, `${JSON.stringify(await extract(input), null, 2)}\n`); }

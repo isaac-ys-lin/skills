@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { build, validateStory } from '../scripts/pptx.js';
 import { normalize, numbers, found, calculations, calculationPattern } from './numbers.mjs';
+import { isMain } from '../scripts/main.js';
 
 function visibleText(value, path) {
   if (typeof value === 'number' || typeof value === 'string') return [{ text: String(value), path }];
@@ -53,7 +54,7 @@ export async function check(story, script) {
   return { ...result, pages: story.pages.length };
 }
 
-if (import.meta.main) {
+if (isMain(import.meta.url)) {
   const [storyFile, scriptFile] = process.argv.slice(2);
   if (!storyFile || !scriptFile) {
     console.error('用法：node evals/check.mjs story.json script.md');

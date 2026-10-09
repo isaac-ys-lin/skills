@@ -5,6 +5,7 @@ import { accessSync, constants, copyFileSync, existsSync, mkdirSync, readdirSync
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { basename, delimiter, join, resolve } from 'node:path';
+import { isMain } from './main.js';
 
 function executable(name) {
   for (const dir of (process.env.PATH ?? '').split(delimiter)) {
@@ -50,7 +51,7 @@ export function preview(deck, outDir) {
   return pages.map((p) => resolve(outDir, p));
 }
 
-if (import.meta.main) {
+if (isMain(import.meta.url)) {
   const [deck, outDir] = process.argv.slice(2);
   if (!deck || !outDir) {
     console.error('用法：node scripts/preview.js deck.pptx out/preview');

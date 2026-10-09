@@ -1,6 +1,7 @@
 // Check visible report copy, including SVG labels, against the source manuscript.
 import { readFileSync } from 'node:fs';
 import { numbers, found, calculations } from './numbers.mjs';
+import { isMain } from '../scripts/main.js';
 
 const hiddenTags = new Set(['head', 'style', 'script', 'template', 'noscript', 'defs', 'title', 'desc']);
 const voidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'path', 'rect', 'line', 'circle', 'polygon', 'polyline', 'ellipse', 'use']);
@@ -73,7 +74,7 @@ export function checkReport(html, script) {
   return { sections: blocks.length - 1, figures: figures.length };
 }
 
-if (import.meta.main) {
+if (isMain(import.meta.url)) {
   const [htmlFile, scriptFile] = process.argv.slice(2);
   if (!htmlFile || !scriptFile) {
     console.error('用法：node evals/check-report.mjs report.html script.md');

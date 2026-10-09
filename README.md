@@ -28,7 +28,7 @@ flowchart LR
 
 ## 安裝與 30 秒上手
 
-需要 Node 24.2 以上。把**整個** Clayprint 資料夾放進專案的 skills 目錄：Claude Code 用專案內的 `.claude/skills/clayprint/`；Codex 放到 Codex 讀取專案 skills 的資料夾。`agents/openai.yaml` 提供 Codex 顯示名稱與預設提示，不是安裝設定。進入 Clayprint 資料夾後執行 `npm ci`。
+需要 Node 22 以上。把**整個** Clayprint 資料夾放進專案的 skills 目錄：Claude Code 用專案內的 `.claude/skills/clayprint/`；Codex 放到 Codex 讀取專案 skills 的資料夾。`agents/openai.yaml` 提供 Codex 顯示名稱與預設提示，不是安裝設定。進入 Clayprint 資料夾後執行 `npm ci`。
 
 ```sh
 mkdir -p out
