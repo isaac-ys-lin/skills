@@ -14,18 +14,35 @@ const rank = (value) => ({ kind: 'rank', rows: [{ label: '甲', value }] });
 const example = JSON.parse(readFileSync(new URL('../examples/story.json', import.meta.url), 'utf8'));
 const script = readFileSync(new URL('../evals/fixtures/example-script.md', import.meta.url), 'utf8');
 
-test('範例通過驗收並建出八頁', async () => {
+test('範例通過驗收並建出九頁，封面後為主管摘要', async () => {
   const result = await check(example, script);
-  assert.equal(result.pages, 8);
+  assert.equal(result.pages, 9);
+  assert.equal(example.pages[1].type, 'summary');
   assert.deepEqual(result.warnings, []);
   const zip = await JSZip.loadAsync(result.buffer);
-  assert.equal(Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f)).length, 8);
+  assert.equal(Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f)).length, 9);
 });
 
 test('CLI 對範例回報通過', () => {
   const run = spawnSync(process.execPath, ['evals/check.mjs', 'examples/story.json', 'evals/fixtures/example-script.md'], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /通過：8 頁/);
+  assert.match(run.stdout, /通過：9 頁/);
+});
+
+test('主管摘要的建議、說明、數字與項目說明皆須有原稿依據', async () => {
+  const visual = {
+    lead: '優先改善交接', body: '甲有 12 件，乙有 8 件。',
+    items: [{ label: '甲', value: 12, unit: '件', note: '已完成 12 件' }, { label: '乙', value: 8, unit: '件' }],
+  };
+  const manuscript = '甲有 12 件，乙有 8 件。';
+  await check(story(visual, { type: 'summary' }), manuscript);
+  for (const field of ['lead', 'body']) {
+    await assert.rejects(check(story({ ...visual, [field]: '共有 999 件' }, { type: 'summary' }), manuscript), new RegExp(`visual\\.${field}.*999`));
+  }
+  for (const field of ['value', 'note']) {
+    const items = [{ ...visual.items[0], [field]: field === 'value' ? 999 : '共有 999 件' }, visual.items[1]];
+    await assert.rejects(check(story({ ...visual, items }, { type: 'summary' }), manuscript), new RegExp(`visual\\.items\\[0\\]\\.${field}.*999`));
+  }
 });
 
 test('缺 claim、來源或不合法的 visual 都有頁碼與修法', async () => {
@@ -186,4 +203,3 @@ test('來源列合法算式的減號不是原稿負數，式外文字仍須核�
   await assert.rejects(check(singlePage({ sources: { source: '稿', more: ['計算：800-1200=-400；999'] } }), '800；1200'), /sources\.more\[0\].*999/);
   await assert.rejects(check(singlePage({ claim: '-8', sources: { source: '稿', more: ['計算：12 -8 = 4'] } }), '12；8'), /claim.*-8/);
 });
-

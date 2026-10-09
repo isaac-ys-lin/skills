@@ -1,6 +1,6 @@
 # 版型：讓每頁的一句判斷決定畫面
 
-版型是元件庫，不是要依序填滿的表單。先寫每頁 `claim`，再選最能支持它的版型；不必湊齊八種，也不必固定頁數。來源是文字稿，範例只提供結構。
+版型是元件庫，不是要依序填滿的表單。先寫每頁 `claim`，再選最能支持它的版型；不必湊齊九種，也不必固定頁數。來源是文字稿，範例只提供結構。
 
 ## 整份簡報與共通欄位
 
@@ -8,7 +8,7 @@
 
 | 欄位 | 用法 |
 | --- | --- |
-| `type` | `cover`、`section`、`statement`、`evidence`、`numbers`、`compare`、`steps`、`close` 之一。 |
+| `type` | `cover`、`summary`、`section`、`statement`、`evidence`、`numbers`、`compare`、`steps`、`close` 之一。 |
 | `kicker` | 頁首章節名；封面改作單位名稱。章節尺標由所有非封面頁的 `kicker` 按首次出現去重。 |
 | `claim` | 一句可被內容支持的判斷。所有版型的長標題都可用 `\n` 指定斷點，行數估算會照斷點計算並保留標題高度。避免只寫「背景」或「分析結果」。 |
 | `note` | 畫面上的副標或補充，只在 `cover`、`section`、`statement`、`evidence` 使用。 |
@@ -20,20 +20,27 @@
 
 圖表缺值與數字格的 `value: null` 會自動加上「未提供：項目」；其他版型的缺漏與未定事項，請自行寫入 `sources.more`。來源列建議維持兩行，超過會警告且不縮字。`visual.source` 不會代替頁面的 `sources.source`。
 
-## 八種版型
+## 九種版型
 
 | 版型 | 什麼時候用 | 版面欄位與實作補充 | 容量與限制 |
 | --- | --- | --- | --- |
 | 封面 `cover` | 建立主張、對象與範圍。 | `kicker`、`claim`、`note`、`sources`；日期讀根層 `date`。 | 深藍底；主標可用 `\n` 分兩行，副標以一行為宜。 |
+| 主管摘要 `summary` | 先交代建議與支撐決策的關鍵數字。 | `kicker`、`claim`、`visual.lead`、選用 `visual.body`、`visual.items`、`sources`。 | 左欄一行粗體建議與二至三行說明；右欄直排二至三個數字，每項可加一行 `note`。超出容量會警告。 |
 | 章節 `section` | 故事進入新的問題，讓觀眾知道位置。 | `kicker`、`claim`、`note`、`sources`；尺標依全份簡報的章節名產生。 | 淡藍底；目前章節以 `kicker` 對應尺標，不把章節清單放進 `visual`。 |
 | 一句話 `statement` | 需要觀眾先記住一個判斷，或沒有數字可畫。 | `kicker`、`claim`、`note`、`sources`；選用 `focus` 指定 `claim` 內一段原文。 | 只強調第一個相符片段；找不到 `focus` 會警告。補充要短。 |
 | 證據 `evidence` | 用一張圖或表支持標題。 | `kicker`、`claim`、`visual`、`note`、`sources`；選用 `metric: {label?, value, unit?}`。 | `visual` 是 [圖表 spec](charts.md)。有 `note` 或 `metric` 時保留右側結論欄；兩者都省略時圖表放寬。一頁一張主圖。 |
-| 數字 `numbers` | 並列少數關鍵指標及增減。 | `kicker`、`claim`、`visual.items`、`sources`。 | 建議二至四格；超出範圍會警告。過長數字可能縮字並警告，仍須看圖。 |
+| 數字 `numbers` | 並列少數關鍵指標及增減。 | `kicker`、`claim`、`visual.items`、`sources`。 | 由標題下方的內容起點向下排，建議二至四格；超出範圍會警告。過長數字可能縮字並警告，仍須看圖。 |
 | 比較 `compare` | 在同一組條件下比較方案並提出建議。 | `kicker`、`claim`、`visual.rows`、`visual.options`、`sources`。 | 建議二至三個方案；方案數量與文字密度以預覽判斷。每個方案的 `values` 與列名逐格對應。 |
 | 步驟 `steps` | 已知月份起迄的分階段時程。 | `kicker`、`claim`、`visual.start`、`visual.end`、`visual.phases`、`sources`。 | 日期必須是 `YYYY-MM`，各階段落在整體時程內；適合少數階段，列高不足會警告。 |
-| 收尾 `close` | 明確交代接下來做什麼、誰負責、何時完成。 | `kicker`、`claim`、`visual.rows`、`sources`。 | 下一步／負責人／期限；全欄未提供的負責人或期限會省略。文字放不下會警告。 |
+| 收尾 `close` | 明確交代接下來做什麼、誰負責、何時完成。 | `kicker`、`claim`、`visual.rows`、`sources`。 | 與封面同色的深藍底，任務粗體白字、負責人與期限靠右淡色，列間細線；全欄未提供的負責人或期限會省略。文字放不下會警告。 |
 
 所有版型都接受 `notes`。數字格、方案、階段、行動列中的全空物件會整格略去；每個主視覺仍需至少一筆有內容的資料。表中的二至四格、二至三方案是視覺容量建議，警告用來提示看圖，不是要求把真實內容硬湊成指定數量。
+
+表格（原生與 SVG）、比較頁及收尾頁會依可用高度平均放大資料列，最多為原列高的 1.8 倍，字級不變；列多時沿用原有配置。
+
+### 主管摘要的 `visual`
+
+`{lead, body?, items}`。`lead` 必填，寫一行建議；`body` 選填，以二至三行說明理由。`items` 使用下方數字格的相同結構，另可加 `note` 作一行說明。右欄每項依序顯示大數字與單位、粗體短標籤、說明，項目間用細線分隔。建議二至三項，項目數、建議、說明或數字超出容量時會警告；文字仍需逐頁驗收。
 
 ### 數字格的 `visual`
 
@@ -50,7 +57,7 @@
 
 ### 比較頁的 `visual`
 
-`rows` 是列名陣列。`options` 的每項為 `{name, subtitle?, values, recommended?}`，`values` 是與列名等長的文字或數字陣列，缺值用 `null`；`recommended: true` 顯示藍頂線與「建議」。數字若寫在文字裡仍需來自來源。未知資料格填 `null` 保留對應位置，並在 `sources.more` 交代。
+`rows` 是列名陣列。`options` 的每項為 `{name, subtitle?, values, recommended?}`，`values` 是與列名等長的文字或數字陣列，缺值用 `null`；`recommended: true` 的欄頭使用實心 focus 色塊，方案名、副標與「建議」為白字，下方各格使用表格強調列的淡色底。未指定建議方案時維持一般欄位外觀。數字若寫在文字裡仍需來自來源。未知資料格填 `null` 保留對應位置，並在 `sources.more` 交代。
 
 ### 步驟頁的 `visual`
 
@@ -62,7 +69,7 @@
 
 ## 完整 story.json 結構範例
 
-下面可直接存為 `story.json` 後建檔。這是虛構圖書館的 API 示意，涵蓋八種版型；實際故事只挑需要的頁。更完整的現有資料範例在 [examples/story.json](../examples/story.json)。
+下面可直接存為 `story.json` 後建檔。這是虛構圖書館的 API 示意，涵蓋九種版型；實際故事只挑需要的頁。更完整的現有資料範例在 [examples/story.json](../examples/story.json)。
 
 ```json
 {
@@ -77,6 +84,20 @@
       "note": "先處理交接資訊，再檢查等待時間",
       "sources": { "source": "虛構示意提案" },
       "notes": "說明提案範圍與本次需要確認的決定。"
+    },
+    {
+      "type": "summary",
+      "kicker": "主管摘要",
+      "claim": "先統一確認通知，追蹤件數與等待時間",
+      "visual": {
+        "lead": "先試行統一確認通知",
+        "body": "讓狀態與負責窗口保持一致。\n以件數與等待時間追蹤試行結果。",
+        "items": [
+          { "label": "東館完成件數", "value": 80, "unit": "件", "note": "用來追蹤服務量" },
+          { "label": "東館平均等待", "value": 2.5, "unit": "天", "digits": 1, "note": "用來追蹤處理時間" }
+        ]
+      },
+      "sources": { "source": "虛構示意紀錄與提案", "period": "2026 年 2 月" }
     },
     {
       "type": "section",

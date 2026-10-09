@@ -186,6 +186,32 @@ test('table: emphasis row tinted and bold, deltas colored, total ruled, missing 
   assert.deepEqual(gap.model.missing, ['甲／量']);
 });
 
+for (const [label, rows, rowH, overflow] of [
+  ['sparse rows stop at 1.8 times the old maximum', 2, 129.6, false],
+  ['medium rows fill the available height', 6, (669 - 50.8) / 6, false],
+  ['dense rows keep their old height', 10, (669 - 50.8) / 10, false],
+  ['overflowing rows keep their minimum and warn', 14, 48, true],
+]) {
+  test(`table: ${label}`, () => {
+    const { svg, model } = render({
+      kind: 'table', columns: [{ name: '區', type: 'text' }, { name: '量' }],
+      rows: Array.from({ length: rows }, (_, i) => [`R${i}`, i + 1]), emphasis: 'R0',
+    }, { height: 669 });
+    const headH = T.type.tableHeader.px * 1.45 + 16;
+    const labels = [...svg.matchAll(/<text[^>]* y="([\d.]+)"[^>]*font-size="(\d+)"[^>]*>R\d+<\/text>/g)];
+    assert.equal(labels.length, rows);
+    labels.forEach(([, y, size], i) => {
+      assert.equal(Number(size), T.type.tableBody.px, 'row growth never changes font size');
+      assert.ok(Math.abs(Number(y) - (headH + rowH * (i + 0.5) + T.type.tableBody.px * 0.35)) <= 0.01);
+    });
+    const fill = svg.match(new RegExp(`<rect[^>]* y="([\\d.]+)"[^>]* height="([\\d.]+)" fill="${C.tint}"`));
+    assert.ok(fill);
+    assert.equal(Number(fill[1]), headH);
+    assert.ok(Math.abs(Number(fill[2]) - rowH) <= 0.01, 'emphasis fill grows with its row');
+    assert.equal(model.warnings.some((w) => w.includes('表格列數太多')), overflow);
+  });
+}
+
 test('crowded heat column labels, untyped text columns, and unlabeled share segments', () => {
   const cols = Array.from({ length: 24 }, (_, i) => `${i}:00–${i + 1}:00`);
   const heat = render({ kind: 'heat', rowLabels: ['一'], colLabels: cols, values: [cols.map((_, i) => i)] });

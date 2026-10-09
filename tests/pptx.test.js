@@ -161,6 +161,182 @@ async function workbook(zip, chart) {
 }
 const evidence = (visual) => ({ type: 'evidence', claim: '資料比較', visual });
 const deck = async (pages, extra = {}) => { const result = await build({ title: '測試簡報', pages, ...extra }); return { ...result, zip: await JSZip.loadAsync(result.buffer) }; };
+const shapeText = (root, text) => { const found = nodes(root, 'p:sp').find((s) => textOf(s) === text); assert.ok(found, `missing text shape ${text}`); return found; };
+const geometry = (shape) => {
+  const off = one(shape, 'a:off').attrs, ext = one(shape, 'a:ext').attrs, unit = 914400 / T.slide.pxPerIn;
+  return { x: Number(off.x) / unit, y: Number(off.y) / unit, w: Number(ext.cx) / unit, h: Number(ext.cy) / unit };
+};
+const shapeFill = (shape) => children(one(shape, 'p:spPr'), 'a:solidFill').flatMap((f) => nodes(f, 'a:srgbClr')).map((c) => c.attrs.val);
+const sourceY = (root) => Math.max(...nodes(root, 'p:sp').filter((s) => nodes(s, 'a:prstGeom').some((g) => g.attrs.prst === 'line') && Math.abs(geometry(s).w - (T.slide.widthPx - 2 * T.margin.x)) < 0.01).map((s) => geometry(s).y));
+const near = (actual, expected, why) => assert.ok(Math.abs(actual - expected) < 0.01, `${why}: ${actual} != ${expected}`);
+
+test('summary validation requires a lead and validates inherited number and optional text fields', () => {
+  const page = { type: 'summary', claim: '判斷', visual: { lead: '優先試行', items: [{ label: '甲', value: 1 }, { label: '乙', value: 2 }] } };
+  for (const [change, field] of [
+    [(p) => { delete p.visual.lead; }, 'visual.lead'],
+    [(p) => { p.visual.lead = ' '; }, 'visual.lead'],
+    [(p) => { p.visual.lead = 1; }, 'visual.lead'],
+    [(p) => { p.visual.body = []; }, 'visual.body'],
+    [(p) => { p.visual.items = []; }, 'visual.items'],
+    [(p) => { p.visual.items[0].note = 1; }, 'visual.items[0].note'],
+    [(p) => { p.visual.items[0].value = {}; }, 'visual.items[0].value'],
+    [(p) => { p.visual.items[0].prev = '2'; }, 'visual.items[0].prev'],
+    [(p) => { p.visual.items[0].digits = -1; }, 'visual.items[0].digits'],
+    [(p) => { p.visual.items[0].better = 'unknown'; }, 'visual.items[0].better'],
+    [(p) => { p.visual.items[0].mode = 'unknown'; }, 'visual.items[0].mode'],
+    [(p) => { p.notes = [1]; }, 'notes'],
+  ]) {
+    const changed = structuredClone(page); change(changed);
+    assert.throws(() => validateStory({ pages: [changed] }), (error) => error.message.includes(`第 1 頁：pages[0].${field}`) && error.message.includes('請'));
+  }
+});
+
+test('summary keeps zero, missing sources, units, delta, notes, and left/right vertical geometry', async () => {
+  const page = { type: 'summary', kicker: '主管摘要', claim: '優先改善服務', visual: {
+    lead: '先做小規模試行', body: '先確認可行性。\n再擴大範圍。',
+    items: [{ label: '新增缺失', value: 0, unit: '件', prev: 2, better: 'lower', note: '本期未新增' }, { label: '待確認值', value: null }],
+  }, sources: { source: '會議紀錄' }, notes: ['講稿甲', '講稿乙'] };
+  const { zip, warnings } = await deck([page]);
+  assert.deepEqual(warnings, []);
+  const root = await xml(zip, 'ppt/slides/slide1.xml'), lead = shapeText(root, page.visual.lead), body = shapeText(root, '先確認可行性。再擴大範圍。');
+  const number = shapeText(root, '0 件'), first = shapeText(root, '新增缺失'), second = shapeText(root, '待確認值');
+  const leadBox = geometry(lead), numberBox = geometry(number), firstBox = geometry(first), secondBox = geometry(second);
+  const claim = geometry(shapeText(root, page.claim));
+  near(leadBox.y, claim.y + claim.h + T.margin.contentGap, 'summary starts below claim');
+  assert.ok(geometry(body).y > leadBox.y + leadBox.h);
+  assert.ok(numberBox.x > leadBox.x + leadBox.w, 'numbers occupy the right column');
+  near(numberBox.x, firstBox.x, 'number and label share a left edge');
+  near(firstBox.x, secondBox.x, 'items form a vertical column');
+  assert.ok(firstBox.y >= numberBox.y + numberBox.h && secondBox.y > firstBox.y);
+  assert.ok(nodes(lead, 'a:rPr').every((r) => r.attrs.b === '1'));
+  assert.ok(nodes(first, 'a:rPr').every((r) => r.attrs.b === '1'));
+  assert.ok(nodes(number, 'a:rPr').some((r) => Number(r.attrs.sz) === T.type.conclusionNumber.px / T.slide.pxPerPt * 100));
+  assert.equal(value(one(shapeText(root, '−2'), 'a:rPr'), 'a:srgbClr'), hex(C.better));
+  assert.ok(textOf(root).includes('未提供：待確認值'));
+  assert.doesNotMatch(textOf(root), /null|undefined|NaN/);
+  const between = nodes(root, 'p:sp').filter((s) => nodes(s, 'a:prstGeom').some((g) => g.attrs.prst === 'line') && geometry(s).x === numberBox.x);
+  assert.equal(between.length, 1, 'one divider separates two items');
+  assert.ok(geometry(between[0]).y > firstBox.y && geometry(between[0]).y < secondBox.y);
+  const notes = textOf(await xml(zip, 'ppt/notesSlides/notesSlide1.xml'));
+  assert.ok(notes.includes('講稿甲') && notes.includes('講稿乙'));
+  const optional = structuredClone(page); delete optional.visual.body; delete optional.visual.items[0].note; optional.notes = '單段講稿';
+  const without = await deck([optional]), withoutRoot = await xml(without.zip, 'ppt/slides/slide1.xml');
+  assert.deepEqual(without.warnings, []);
+  assert.ok(!textOf(withoutRoot).includes('先確認可行性') && !textOf(withoutRoot).includes('本期未新增'));
+  assert.ok(textOf(await xml(without.zip, 'ppt/notesSlides/notesSlide1.xml')).includes('單段講稿'));
+});
+
+test('summary warns for capacity and long lead, body, number, label, and note without blocking output', async () => {
+  const make = (count) => ({ type: 'summary', claim: '建議', visual: { lead: '先行試辦', items: Array.from({ length: count }, (_, i) => ({ label: `項目${i}`, value: i })) } });
+  const long = make(2);
+  Object.assign(long.visual, { lead: '建議\n第二行', body: '甲\n乙\n丙\n丁' });
+  Object.assign(long.visual.items[0], { label: '標籤\n第二行', note: '說明\n第二行', value: '12345678901234567890' });
+  const { buffer, warnings } = await deck([make(1), make(2), make(3), make(4), long]);
+  assert.ok(buffer.length);
+  for (const n of [1, 4]) assert.ok(warnings.some((w) => w.includes(`第 ${n} 頁主管摘要`) && /2～3/.test(w)));
+  for (const n of [2, 3]) assert.ok(!warnings.some((w) => w.includes(`第 ${n} 頁`)));
+  for (const pattern of [/建議超過一行/, /說明超出三行/, /數字超出欄寬/, /說明超過一行/, /超出單列容量/]) assert.ok(warnings.some((w) => /第 5 頁/.test(w) && pattern.test(w)), String(pattern));
+});
+
+test('close uses the cover background, white bold tasks, right-aligned muted owners/dates and readable footer', async () => {
+  const rows = [{ task: '提出草案', owner: '營運科', due: '月底' }, { task: '確認範圍', owner: '規劃科' }];
+  const pages = [{ type: 'cover', claim: '封面' }, { type: 'close', claim: '決議', visual: { rows }, sources: { source: '會議決議' } },
+    ...['owner', 'due'].map((omit) => ({ type: 'close', claim: '決議', visual: { rows: rows.map((r) => Object.fromEntries(Object.entries(r).filter(([key]) => key !== omit))) } }))];
+  const { zip, warnings } = await deck(pages);
+  assert.deepEqual(warnings, []);
+  const cover = await xml(zip, 'ppt/slides/slide1.xml'), root = await xml(zip, 'ppt/slides/slide2.xml');
+  assert.equal(value(one(root, 'p:bg'), 'a:srgbClr'), value(one(cover, 'p:bg'), 'a:srgbClr'));
+  assert.equal(value(one(root, 'p:bg'), 'a:srgbClr'), hex(C.dark));
+  for (const text of ['提出草案', '確認範圍']) {
+    const s = shapeText(root, text);
+    assert.ok(nodes(s, 'a:rPr').every((r) => r.attrs.b === '1' && value(r, 'a:srgbClr') === hex(C.onDark[0])));
+  }
+  for (const text of ['營運科', '規劃科', '月底', '資料來源：會議決議', '2 / 4']) {
+    const s = shapeText(root, text);
+    assert.ok(nodes(s, 'a:rPr').every((r) => value(r, 'a:srgbClr') === hex(C.onDark[1])));
+    if (!text.startsWith('資料來源')) assert.ok(nodes(s, 'a:pPr').every((r) => r.attrs.algn === 'r'));
+  }
+  for (const s of nodes(root, 'p:sp').filter((s) => nodes(s, 'a:prstGeom').some((g) => g.attrs.prst === 'line'))) {
+    assert.equal(value(one(s, 'a:ln'), 'a:srgbClr'), hex(C.onDark[1]));
+    assert.equal(Number(one(s, 'a:ln').attrs.w), T.stroke.axis / T.slide.pxPerPt * 12700);
+  }
+  assert.ok(!textOf(await xml(zip, 'ppt/slides/slide3.xml')).includes('負責人'));
+  assert.ok(!textOf(await xml(zip, 'ppt/slides/slide4.xml')).includes('期限'));
+});
+
+test('compare highlights the complete recommended column and leaves unselected headers and cells unfilled', async () => {
+  const page = { type: 'compare', claim: '比較方案', visual: { rows: ['成本', '時間'], options: [
+    { name: '方案甲', subtitle: '保守作法', values: ['甲成本', '甲時間'] },
+    { name: '方案乙', subtitle: '優先試行', recommended: true, values: ['乙成本', '乙時間'] },
+  ] } };
+  const plain = structuredClone(page); delete plain.visual.options[1].recommended;
+  const { zip, warnings } = await deck([page, plain]);
+  assert.deepEqual(warnings, []);
+  const root = await xml(zip, 'ppt/slides/slide1.xml'), shapes = nodes(root, 'p:sp');
+  const header = shapes.filter((s) => shapeFill(s).includes(hex(C.focus))), cells = shapes.filter((s) => shapeFill(s).includes(hex(C.tint)));
+  assert.equal(header.length, 1); assert.equal(cells.length, 2);
+  const h = geometry(header[0]);
+  for (const label of ['方案乙　建議', '優先試行']) {
+    const s = shapeText(root, label), g = geometry(s);
+    assert.ok(nodes(s, 'a:rPr').every((r) => value(r, 'a:srgbClr') === hex(C.onDark[0])));
+    assert.ok(g.x >= h.x && g.x + g.w <= h.x + h.w + 0.01 && g.y >= h.y && g.y + g.h <= h.y + h.h + 0.01, `${label}: text inside solid header`);
+  }
+  for (const [i, s] of cells.entries()) {
+    const g = geometry(s), text = geometry(shapeText(root, ['乙成本', '乙時間'][i]));
+    near(g.x, h.x, 'recommended cells align with header'); near(g.w, h.w, 'recommended column has uniform width');
+    assert.ok(text.x >= g.x && text.x + text.w <= g.x + g.w + 0.01 && text.y >= g.y && text.y + text.h <= g.y + g.h + 0.01);
+  }
+  const unselected = await xml(zip, 'ppt/slides/slide2.xml');
+  assert.equal(nodes(unselected, 'p:sp').filter((s) => shapeFill(s).includes(hex(C.focus)) || shapeFill(s).includes(hex(C.tint))).length, 0);
+  assert.ok(!textOf(unselected).includes('建議'));
+});
+
+test('numbers sit centered below one-line and two-line titles', async () => {
+  const { zip, warnings } = await deck(['主張', '主張\n第二行'].map((claim) => ({ type: 'numbers', claim, visual: { items: [{ label: '甲', value: 1 }, { label: '乙', value: 2 }] } })));
+  assert.deepEqual(warnings, []);
+  for (const n of [1, 2]) {
+    const root = await xml(zip, `ppt/slides/slide${n}.xml`), title = geometry(shapeText(root, n === 1 ? '主張' : '主張第二行'));
+    const lines = nodes(root, 'p:sp').filter((s) => nodes(s, 'a:prstGeom').some((g) => g.attrs.prst === 'line') && geometry(s).w > 0 && geometry(s).w < T.slide.widthPx - 2 * T.margin.x);
+    const top = Math.min(...lines.map((s) => geometry(s).y)), end = sourceY(root) - T.margin.sourceGap;
+    const bottom = Math.max(...nodes(root, 'p:sp').filter((s) => /^\d$/.test(textOf(s))).map((s) => geometry(s).y + geometry(s).h));
+    assert.ok(top > title.y + title.h + T.margin.contentGap, 'tiles leave the content gap');
+    assert.ok(Math.abs((top - (title.y + title.h + T.margin.contentGap)) - (end - bottom)) < 120, 'tiles are roughly centered');
+    assert.ok(geometry(shapeText(root, '甲')).y < geometry(shapeText(root, '1')).y, 'label precedes its number');
+  }
+});
+
+for (const [type, base, medium] of [['table', 72, 6], ['compare', 110, 4], ['close', 100, 4]]) {
+  test(`${type}: sparse rows cap at 1.8x, medium rows reach the source gap, crowded rows shrink and warn`, async () => {
+    const counts = [2, medium, 12];
+    const pages = counts.map((count) => {
+      const labels = Array.from({ length: count }, (_, i) => `R${i}`);
+      const visual = type === 'table' ? { kind: 'table', columns: [{ name: '項目', type: 'text' }, { name: '量' }], rows: labels.map((s, i) => [s, i + 1]) }
+        : type === 'compare' ? { rows: labels, options: [{ name: '方案甲', values: labels }, { name: '方案乙', values: labels }] }
+          : { rows: labels.map((task) => ({ task })) };
+      return { type: type === 'table' ? 'evidence' : type, claim: '容量測試', visual };
+    });
+    const { zip, warnings } = await deck(pages);
+    for (const [i, count] of counts.entries()) {
+      const root = await xml(zip, `ppt/slides/slide${i + 1}.xml`), end = sourceY(root) - T.margin.sourceGap;
+      let heights, top;
+      if (type === 'table') {
+        const rows = nodes(root, 'a:tr');
+        heights = rows.slice(1).map((r) => Number(r.attrs.h) / (914400 / T.slide.pxPerIn));
+        top = geometry(one(root, 'p:graphicFrame')).y + Number(rows[0].attrs.h) / (914400 / T.slide.pxPerIn);
+      } else {
+        const pad = 0; // row text fills its row and is vertically centered
+        const rows = Array.from({ length: count }, (_, j) => geometry(shapeText(root, `R${j}`)));
+        heights = rows.map((r) => r.h + pad); top = rows[0].y - pad;
+      }
+      assert.equal(heights.length, count);
+      for (const h of heights) near(h, heights[0], 'rows have equal height');
+      if (i === 0) near(heights[0], base * 1.8, 'sparse row cap');
+      else near(top + heights.reduce((a, b) => a + b, 0), end, 'content ends at source gap');
+      if (i === 2) assert.ok(heights[0] < base, 'crowded rows keep shrinking');
+      assert.equal(warnings.some((w) => w.includes(`第 ${i + 1} 頁`) && /列高不足/.test(w)), i === 2);
+    }
+  });
+}
 
 const visuals = [
   { kind: 'rank', focus: '甲', rows: [{ label: '甲', value: 30 }, { label: '乙', value: 20 }, { label: '丙', value: 10 }] },
@@ -202,9 +378,10 @@ test('PPTX XML parser rejects broken tags and preserves escaped text', () => {
   for (const bad of ['<a><b></a>', '<a>', '<a/><b/>', '<a b=x/>', '<a>&oops;</a>']) assert.throws(() => parseXml(bad));
 });
 
-test('story: eight pages, page numbers, no warnings, and empty author metadata', async () => {
+test('story: nine pages, page numbers, no warnings, and empty author metadata', async () => {
   const { zip, story, warnings } = await storyDeck();
   assert.deepEqual(warnings, []);
+  assert.equal(story.pages.length, 9);
   assert.equal(files(zip, /^ppt\/slides\/slide\d+\.xml$/).length, story.pages.length);
   for (let n = 1; n <= story.pages.length; n++) assert.ok(textOf(await xml(zip, `ppt/slides/slide${n}.xml`)).includes(`${n} / ${story.pages.length}`));
   const core = await xml(zip, 'docProps/core.xml');

@@ -1,4 +1,4 @@
-// Build a PowerPoint deck from story.json: 8 layouts, every page with a source row and page number.
+// Build a PowerPoint deck from story.json: 9 layouts, every page with a source row and page number.
 // node scripts/pptx.js story.json deck.pptx
 import { readFileSync, writeFileSync } from 'node:fs';
 import PptxGenJS from 'pptxgenjs';
@@ -90,9 +90,9 @@ const TITLE_Y = M.top + LABEL + M.titleGap;
 const DISPLAY_LH = 1.35;
 const TITLE = T.type.title.px;
 
-function title(slide, str) {
+function title(slide, str, color = C.title) {
   const n = lines(str, TITLE, INNER);
-  text(slide, str, { x: M.x, y: TITLE_Y, w: INNER, h: n * TITLE * 1.25, px: TITLE, color: C.title, bold: true, lineHeight: 1.25 });
+  text(slide, str, { x: M.x, y: TITLE_Y, w: INNER, h: n * TITLE * 1.25, px: TITLE, color, bold: true, lineHeight: 1.25 });
   return TITLE_Y + n * TITLE * 1.25;
 }
 
@@ -127,7 +127,7 @@ function nativeTable(slide, m, area, ctx) {
   const sum = widths.reduce((a, b) => a + b, 0);
   if (sum > area.w) ctx.warn(`第 ${ctx.n} 頁表格欄寬超出圖表區`);
   widths[0] += Math.max(0, area.w - sum);
-  const headH = head * LH + 16, rowH = Math.min(72, (area.h - headH) / m.rows.length);
+  const headH = head * LH + 16, rowH = Math.min(72 * 1.8, (area.h - headH) / m.rows.length);
   const none = { type: 'none', color: hex(C.grid) };
   const border = (color, edge) => [0, 1, 2, 3].map((i) => i === edge ? { color: hex(color), pt: pt(T.stroke.grid) } : none);
   const rows = [m.header.map((h) => ({ text: h.text, options: {
@@ -261,7 +261,7 @@ export function validateStory(story) {
       optional(page.metric, ['label', 'unit'], 'metric.');
       if (!emptyCell(page.metric)) check(typeof page.metric.value === 'string' || isNumber(page.metric.value), 'metric.value', '填入文字或有限數字');
     }
-    if (!['evidence', 'numbers', 'compare', 'steps', 'close'].includes(page.type)) {
+    if (!['evidence', 'numbers', 'summary', 'compare', 'steps', 'close'].includes(page.type)) {
       if (page.visual != null) check(emptyCell(page.visual), 'visual', '將主視覺移至 evidence 等對應版型，或省略此頁不使用的 visual');
       return;
     }
@@ -298,7 +298,11 @@ export function validateStory(story) {
         const detail = /[\u3400-\u9fff]/.test(error.message) ? `（${error.message}）` : '';
         check(false, 'visual', `依 examples/${v.kind}.json 修正圖表欄位、資料型別與陣列長度${detail}`);
       }
-    } else if (page.type === 'numbers') {
+    } else if (page.type === 'numbers' || page.type === 'summary') {
+      if (page.type === 'summary') {
+        str(v.lead, 'visual.lead', true);
+        optional(v, ['body'], 'visual.');
+      }
       objects(v.items, 'visual.items');
       v.items.forEach((item, j) => {
         if (emptyCell(item)) return;
@@ -306,6 +310,7 @@ export function validateStory(story) {
         str(item.label, `${path}label`, true);
         check(item.value === null || isNumber(item.value) || (typeof item.value === 'string' && item.value.trim().length > 0), `${path}value`, '填入有限數字或文字；未提供的數值請填 null');
         optional(item, ['unit', 'deltaSuffix'], path);
+        if (page.type === 'summary') optional(item, ['note'], path);
         if (item.prev !== undefined) check(item.prev === null || isNumber(item.prev), `${path}prev`, '填入有限數字，未提供則填 null 或省略');
         if (item.digits !== undefined) digits(item.digits, `${path}digits`);
         if (item.better !== undefined) check(['higher', 'lower'].includes(item.better), `${path}better`, '填入 higher 或 lower');
@@ -443,7 +448,9 @@ LAYOUT.numbers = (slide, ctx) => {
   const gap = 56, cw = (INNER - gap * (items.length - 1)) / items.length;
   const N = T.type.number.px, B = T.type.body.px;
   const blockH = 16 + LABEL * LH + 16 + N * 1.15 + 16 + B * 1.4;
-  const top = (bottom + M.contentGap + ruleY - 48) / 2 - blockH / 2;
+  const free = ruleY - M.sourceGap - (bottom + M.contentGap);
+  if (blockH > free) ctx.warn(`第 ${ctx.n} 頁數字格高度超出內容區`);
+  const top = bottom + M.contentGap + Math.max(0, (free - blockH) / 2);
   items.forEach((it, i) => {
     const x = M.x + i * (cw + gap);
     rule(slide, x, top, x + cw, top, C.gray);
@@ -463,6 +470,55 @@ LAYOUT.numbers = (slide, ctx) => {
   });
 };
 
+LAYOUT.summary = (slide, ctx) => {
+  const { page, story } = ctx;
+  header(slide, page.kicker, story.title);
+  const bottom = title(slide, page.claim);
+  const ruleY = sourceRow(slide, ctx);
+  const top = bottom + M.contentGap, end = ruleY - M.sourceGap;
+  const leftW = INNER / 2, gap = 96, x = M.x + leftW + gap, w = INNER - leftW - gap;
+  const { lead, body } = page.visual;
+  const leadH = lines(lead, T.type.sub.px, leftW) * T.type.sub.px * LH;
+  if (lines(lead, T.type.sub.px, leftW) > 1) ctx.warn(`第 ${ctx.n} 頁主管摘要建議超過一行`);
+  text(slide, lead, { x: M.x, y: top, w: leftW, h: leadH, px: T.type.sub.px, color: C.text, bold: true });
+  if (body) {
+    const count = lines(body, T.type.body.px, leftW), bodyH = count * T.type.body.px * LH;
+    if (count > 3 || top + leadH + 24 + bodyH > end) ctx.warn(`第 ${ctx.n} 頁主管摘要說明超出三行或內容區`);
+    text(slide, body, { x: M.x, y: top + leadH + 24, w: leftW, h: bodyH, px: T.type.body.px, color: C.text, lineHeight: LH });
+  }
+  const items = page.visual.items.filter((it) => !emptyCell(it));
+  if (items.length < 2 || items.length > 3) ctx.warn(`第 ${ctx.n} 頁主管摘要是 ${items.length} 格，規格是 2～3 格`);
+  const rowH = (end - top) / items.length, N = T.type.conclusionNumber.px, B = T.type.body.px;
+  items.forEach((it, i) => {
+    const y = top + i * rowH;
+    if (i) rule(slide, x, y, x + w, y, C.grid);
+    const value = typeof it.value === 'string' ? it.value : formatValue(it.value, { digits: it.digits ?? 0 }) ?? '';
+    const unitW = it.unit ? textWidth(` ${it.unit}`, B) : 0;
+    if (textWidth(value, N) * 1.12 + unitW > w) ctx.warn(`第 ${ctx.n} 頁主管摘要「${it.label}」的數字超出欄寬`);
+    slide.addText([run(value, { px: N }), run(it.unit ? ` ${it.unit}` : '', { px: B, color: C.textSecondary })].filter((r) => r.text),
+      { x: inch(x), y: inch(y + 8), w: inch(w), h: inch(N * 1.15), margin: 0, valign: 'bottom' });
+    const labelN = lines(it.label, B, w), labelH = labelN * B * 1.2;
+    let textY = y + 8 + N * 1.15 + 8;
+    text(slide, it.label, { x, y: textY, w, h: labelH, px: B, color: C.text, bold: true });
+    textY += labelH;
+    if (it.note) {
+      const noteN = lines(it.note, LABEL, w), noteH = noteN * LABEL * LH;
+      if (noteN > 1) ctx.warn(`第 ${ctx.n} 頁主管摘要「${it.label}」的說明超過一行`);
+      text(slide, it.note, { x, y: textY + 8, w, h: noteH });
+      textY += 8 + noteH;
+    }
+    if (typeof it.value === 'number' && it.prev !== undefined) {
+      if (!it.better) ctx.warn(`第 ${ctx.n} 頁「${it.label}」有前期值但沒寫 better，預設越高越好`);
+      const d = delta(it.prev, it.value, { better: it.better ?? 'higher', mode: it.mode ?? 'abs', digits: it.digits ?? 0, suffix: it.deltaSuffix ?? '' });
+      if (d) {
+        text(slide, d.text, { x, y: textY + 8, w, h: LABEL * LH, color: d.color });
+        textY += 8 + LABEL * LH;
+      }
+    }
+    if (labelN > 1 || textY + 8 > y + rowH) ctx.warn(`第 ${ctx.n} 頁主管摘要「${it.label}」超出單列容量，文字可能重疊`);
+  });
+};
+
 LAYOUT.compare = (slide, ctx) => {
   const { page, story } = ctx;
   header(slide, page.kicker, story.title);
@@ -476,24 +532,29 @@ LAYOUT.compare = (slide, ctx) => {
   const headH = T.type.sub.px * 1.4 + LABEL * LH + 24;
   options.forEach((o, i) => {
     const x = M.x + labelW + gap + i * (ow + gap);
-    if (o.recommended) box(slide, x, top, ow, T.stroke.focusRule, C.focus);
+    const pad = o.recommended ? 16 : 0;
+    if (o.recommended) box(slide, x, top, ow, headH, C.focus);
     else rule(slide, x, top + 3, x + ow, top + 3, C.gray);
-    slide.addText([run(o.name ?? '', { px: T.type.sub.px, bold: true }), run(o.recommended ? '　建議' : '', { px: LABEL, color: C.focus, bold: true })].filter((r) => r.text),
-      { x: inch(x), y: inch(top + 20), w: inch(ow), h: inch(T.type.sub.px * 1.4), margin: 0, valign: 'top' });
-    if (o.subtitle) text(slide, o.subtitle, { x, y: top + 20 + T.type.sub.px * 1.4, w: ow, h: LABEL * LH });
+    slide.addText([run(o.name ?? '', { px: T.type.sub.px, color: o.recommended ? C.onDark[0] : C.text, bold: true }), run(o.recommended ? '　建議' : '', { px: LABEL, color: C.onDark[0], bold: true })].filter((r) => r.text),
+      { x: inch(x + pad), y: inch(top + 20), w: inch(ow - 2 * pad), h: inch(T.type.sub.px * 1.4), margin: 0, valign: 'top' });
+    if (o.subtitle) text(slide, o.subtitle, { x: x + pad, y: top + 20 + T.type.sub.px * 1.4, w: ow - 2 * pad, h: LABEL * LH, color: o.recommended ? C.onDark[0] : C.textSecondary });
   });
-  const rowH = Math.min(110, (end - top - headH) / Math.max(1, rows.length));
+  const rowH = Math.min(110 * 1.8, (end - top - headH) / Math.max(1, rows.length));
   rows.forEach((label, r) => {
     const y = top + headH + r * rowH;
     if (lines(label, LABEL, labelW) * LABEL * LH + 16 > rowH
-      || options.some((o) => lines(o.values?.[r] ?? '', T.type.body.px, ow) * T.type.body.px * LH + 12 > rowH)) {
+      || options.some((o) => lines(o.values?.[r] ?? '', T.type.body.px, ow - (o.recommended ? 32 : 0)) * T.type.body.px * LH + 12 > rowH)) {
       ctx.warn(`第 ${ctx.n} 頁比較頁第 ${r + 1} 列列高不足，文字可能重疊`);
     }
+    options.forEach((o, i) => {
+      if (o.recommended) box(slide, M.x + labelW + gap + i * (ow + gap), y, ow, rowH, C.tint);
+    });
     rule(slide, M.x, y, W - M.x, y, C.grid);
-    text(slide, label, { x: M.x, y: y + 16, w: labelW, h: rowH - 16 });
+    text(slide, label, { x: M.x, y, w: labelW, h: rowH, valign: 'middle' });
     options.forEach((o, i) => {
       const x = M.x + labelW + gap + i * (ow + gap);
-      text(slide, o.values?.[r] ?? '', { x, y: y + 12, w: ow, h: rowH - 12, px: T.type.body.px, color: C.text });
+      const pad = o.recommended ? 16 : 0;
+      text(slide, o.values?.[r] ?? '', { x: x + pad, y, w: ow - 2 * pad, h: rowH, px: T.type.body.px, color: C.text, valign: 'middle' });
     });
   });
 };
@@ -536,26 +597,29 @@ LAYOUT.steps = (slide, ctx) => {
 
 LAYOUT.close = (slide, ctx) => {
   const { page, story } = ctx;
-  header(slide, page.kicker, story.title);
-  const bottom = title(slide, page.claim ?? '');
-  const ruleY = sourceRow(slide, ctx);
+  slide.background = { color: hex(C.dark) };
+  const [ink, muted] = C.onDark;
+  header(slide, page.kicker, story.title, muted);
+  const bottom = title(slide, page.claim ?? '', ink);
+  const ruleY = sourceRow(slide, ctx, { line: muted, ink: muted });
   const rows = page.visual.rows.filter((r) => !emptyCell(r));
   const ownerW = 420, dueW = 240, gap = 48;
   const taskW = INNER - ownerW - dueW - 2 * gap;
   const cols = [[M.x, taskW, '下一步', 'task'], [M.x + taskW + gap, ownerW, '負責人', 'owner'], [M.x + taskW + ownerW + 2 * gap, dueW, '期限', 'due']]
     .filter(([, , , key]) => rows.some((row) => row[key]));
   const top = bottom + M.contentGap;
-  for (const [x, w, name] of cols) text(slide, name, { x, y: top, w, h: LABEL * LH });
+  for (const [x, w, name, key] of cols) text(slide, name, { x, y: top, w, h: LABEL * LH, color: muted, align: key === 'task' ? 'left' : 'right' });
   const headY = top + LABEL * LH + 12;
-  rule(slide, M.x, headY, W - M.x, headY, C.text);
-  const rowH = Math.min(100, (ruleY - 48 - headY) / Math.max(1, rows.length));
+  rule(slide, M.x, headY, W - M.x, headY, muted);
+  const rowH = Math.min(100 * 1.8, (ruleY - 48 - headY) / Math.max(1, rows.length));
   rows.forEach((r, i) => {
     const y = headY + i * rowH;
     if (cols.some(([, w, , key]) => lines(r[key] ?? '', T.type.body.px, w) * T.type.body.px * LH + 20 > rowH)) {
       ctx.warn(`第 ${ctx.n} 頁收尾頁第 ${i + 1} 列列高不足，文字可能重疊`);
     }
-    if (i) rule(slide, M.x, y, W - M.x, y, C.grid);
-    for (const [x, w, , key] of cols) text(slide, r[key] ?? '', { x, y: y + 20, w, h: rowH - 20, px: T.type.body.px, color: C.text });
+    if (i) rule(slide, M.x, y, W - M.x, y, muted);
+    for (const [x, w, , key] of cols) text(slide, r[key] ?? '', { x, y, w, h: rowH, px: T.type.body.px, valign: 'middle',
+      color: key === 'task' ? ink : muted, bold: key === 'task', align: key === 'task' ? 'left' : 'right' });
   });
 };
 
@@ -593,7 +657,7 @@ export async function build(story) {
     const slide = pres.addSlide();
     slide.background = { color: hex(C.onDark[0]) };
     const ctx = { story, page, n: i + 1, total: story.pages.length, sections, categoryOrder, charts, missing: [], warn: (w) => warnings.push(w) };
-    if (page.type === 'numbers') ctx.missing.push(...page.visual.items.filter((it) => !emptyCell(it) && it.value === null).map((it) => it.label));
+    if (page.type === 'numbers' || page.type === 'summary') ctx.missing.push(...page.visual.items.filter((it) => !emptyCell(it) && it.value === null).map((it) => it.label));
     // The source row is laid out before the chart (it decides the chart's height), so collect missing values first.
     if (page.type === 'evidence' && page.visual) {
       ctx.model = prepare(page.visual, { categoryOrder });
