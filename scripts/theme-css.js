@@ -98,7 +98,9 @@ tr.emphasis, tr.total { font-weight: 700; background: var(--cp-tint); }
 export function replaceTheme(html, css = themeCss()) {
   const pattern = /(<style\s+id=["']clayprint-theme["']\s*>)[\s\S]*?(<\/style>)/i;
   if (!pattern.test(html)) throw new Error('找不到 <style id="clayprint-theme"> 區塊');
-  return html.replace(pattern, (_, open, close) => `${open}\n${css}\n${close}`);
+  // Keep the file's own line endings (Windows checkouts and editors may use CRLF).
+  const eol = /\r\n/.test(html) ? '\r\n' : '\n';
+  return html.replace(pattern, (_, open, close) => `${open}${eol}${css.replace(/\r?\n/g, eol)}${eol}${close}`);
 }
 
 if (isMain(import.meta.url)) {

@@ -6,7 +6,8 @@ import { checkReport } from '../evals/check-report.mjs';
 import { themeCss, replaceTheme } from '../scripts/theme-css.js';
 import { loadTokens } from '../scripts/tokens.js';
 
-const file = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+// Compare content, not line endings: a Windows checkout may turn LF into CRLF.
+const file = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const cssOf = (html) => html.match(/<style id="clayprint-theme">\n([\s\S]*?)\n<\/style>/)?.[1];
 
 test('範本與完整範例使用目前 clay 設計層，blue 可重寫同一區塊', () => {
@@ -46,4 +47,11 @@ test('推導值沿用簡報的完整加減算式，且只在同節有效', () =>
   assert.doesNotThrow(() => checkReport('<section><p>計算：12 + 8 = 20</p><p>合計 20 件</p></section>', source));
   assert.throws(() => checkReport('<section><p>計算：12 + 8 = 20</p></section><section><p>合計 20 件</p></section>', source), /第 2 節.*20/);
   assert.throws(() => checkReport('<section><p>計算：12 + 8 = 21</p></section>', source), /算式.*不符/);
+});
+
+test('theme-css keeps CRLF files in CRLF', () => {
+  const crlf = '<html>\r\n<style id="clayprint-theme">\r\nold\r\n</style>\r\n</html>\r\n';
+  const out = replaceTheme(crlf, ':root {\n  --x: 1;\n}');
+  assert.ok(!/[^\r]\n/.test(out), 'no bare LF after rewriting a CRLF file');
+  assert.match(out, /--x: 1;/);
 });
