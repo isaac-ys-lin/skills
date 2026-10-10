@@ -7,10 +7,14 @@ import { homedir } from 'node:os';
 import { basename, delimiter, join, resolve } from 'node:path';
 import { isMain } from './main.js';
 
-function executable(name) {
-  for (const dir of (process.env.PATH ?? '').split(delimiter)) {
-    const path = join(dir || '.', name);
-    try { accessSync(path, constants.X_OK); return path; } catch { /* keep looking */ }
+// Find a program on PATH. Windows programs carry an extension from PATHEXT (soffice.exe, tool.cmd).
+export function executable(name, { platform = process.platform, env = process.env } = {}) {
+  const exts = platform === 'win32' ? ['', ...(env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean)] : [''];
+  for (const dir of (env.PATH ?? env.Path ?? '').split(platform === 'win32' ? ';' : delimiter)) {
+    for (const ext of exts) {
+      const path = join(dir || '.', name + ext);
+      try { accessSync(path, platform === 'win32' ? constants.F_OK : constants.X_OK); return path; } catch { /* keep looking */ }
+    }
   }
   return null;
 }
@@ -34,8 +38,12 @@ export function preview(deck, outDir) {
       end tell`], { timeout: 180000 });
     copyFileSync(pdf, outPdf);
   } else {
-    const soffice = executable('soffice') ?? (process.platform === 'darwin' && existsSync('/Applications/LibreOffice.app/Contents/MacOS/soffice')
-      ? '/Applications/LibreOffice.app/Contents/MacOS/soffice' : null);
+    const installed = [
+      ...(process.platform === 'darwin' ? ['/Applications/LibreOffice.app/Contents/MacOS/soffice'] : []),
+      ...(process.platform === 'win32' ? [process.env.ProgramFiles, process.env['ProgramFiles(x86)']].filter(Boolean)
+        .map((dir) => join(dir, 'LibreOffice', 'program', 'soffice.exe')) : []),
+    ];
+    const soffice = executable('soffice') ?? installed.find((path) => existsSync(path)) ?? null;
     if (!soffice) throw new Error('找不到 PowerPoint 或 LibreOffice。請安裝 LibreOffice（soffice），或改看 SVG／PNG 圖表。');
     rmSync(outPdf, { force: true });
     execFileSync(soffice, ['--headless', '--convert-to', 'pdf', '--outdir', resolve(outDir), resolve(deck)], { timeout: 180000 });

@@ -7,8 +7,10 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const script = fileURLToPath(new URL('../scripts/preview.js', import.meta.url));
+const { executable } = await import('../scripts/preview.js');
 
-test('LibreOffice fallback converts PDF and continues through PNG and contact sheet', () => {
+// The fake programs below are POSIX shell scripts; Windows cannot run them, so this flow test runs on macOS and Linux.
+test('LibreOffice fallback converts PDF and continues through PNG and contact sheet', { skip: process.platform === 'win32' && 'POSIX shell shims' }, () => {
   const dir = mkdtempSync(join(tmpdir(), 'clayprint-preview-'));
   try {
     const bin = join(dir, 'bin'), out = join(dir, 'out'), deck = join(dir, 'deck.pptx'), log = join(dir, 'calls');
@@ -64,6 +66,18 @@ test('missing presentation renderer explains the fallback options', { skip: exis
     });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /請安裝 LibreOffice.*SVG／PNG/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('executable() finds Windows programs through PATHEXT', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'clayprint-pathext-'));
+  try {
+    writeFileSync(join(dir, 'soffice.EXE'), '');
+    const env = { PATH: dir, PATHEXT: '.COM;.EXE;.CMD' };
+    assert.equal(executable('soffice', { platform: 'win32', env }), join(dir, 'soffice.EXE'));
+    assert.equal(executable('missing', { platform: 'win32', env }), null);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
