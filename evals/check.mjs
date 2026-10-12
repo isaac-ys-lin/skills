@@ -1,8 +1,9 @@
 // Validate a story against its source manuscript, then build it with the production renderer.
 import { readFileSync } from 'node:fs';
-import { build, validateStory } from '../scripts/pptx.js';
+import { build, validateStory, deckCategories } from '../scripts/pptx.js';
 import { normalize, numbers, found, calculations, calculationPattern } from './numbers.mjs';
 import { isMain } from '../scripts/main.js';
+import { prepare, delta } from '../scripts/core.js';
 
 function visibleText(value, path) {
   if (typeof value === 'number' || typeof value === 'string') return [{ text: String(value), path }];
@@ -16,6 +17,8 @@ export async function check(story, script) {
   validateStory(story);
   if (typeof script !== 'string' || !script.trim()) throw new Error('script.md 必須是非空文字稿；請提供原始內容。');
   const original = numbers(script);
+  const warnings = [];
+  const categoryOrder = deckCategories(story);
   if (original.some((n) => !n.valid)) throw new Error('原稿含無法以有限數字精確表示的數值；請核對科學記號或調整單位，保留原始資料。');
   for (const field of ['title', 'date']) {
     for (const { text, path } of visibleText(story[field], field)) {
@@ -49,9 +52,38 @@ export async function check(story, script) {
         }
       }
     }
+    const fields = ['visual', 'lede'];
+    if (page.type === 'evidence') fields.push('metric');
+    if (['cover', 'section', 'statement', 'evidence'].includes(page.type)) fields.push('note');
+    const picture = fields.filter((field) => field !== 'visual' || page.type !== 'evidence')
+      .flatMap((field) => visibleText(page[field], field))
+      .filter(({ path }) => !/\.(?:focus|digits|source|period|prev)(?:[.\[]|$)/.test(path))
+      .flatMap(({ text }) => numbers(text));
+    if (page.type === 'evidence') {
+      const model = prepare(page.visual, { categoryOrder });
+      const labels = visibleText(model, 'visual').filter(({ path }) => /\.(?:text|texts|\w*Text|label|name|x|periods|rowLabels|colLabels|xLabel|yLabel)(?:\[\d+\])?$/.test(path)
+        && !(page.visual.kind === 'slope' && page.visual.native !== false && path.endsWith('.delta.text')));
+      picture.push(...labels.flatMap(({ text }) => numbers(text)));
+      if (model.kind === 'funnel') for (const step of model.steps) {
+        if (step.lossText !== null) picture.push(...numbers(step.loss));
+      }
+    }
+    if (page.type === 'numbers' || page.type === 'summary') for (const item of page.visual.items) {
+      if (typeof item.value !== 'number' || item.prev === undefined) continue;
+      const change = delta(item.prev, item.value, { better: item.better ?? 'higher', mode: item.mode ?? 'abs', digits: item.digits ?? 0, suffix: item.deltaSuffix ?? '' });
+      const labels = numbers(change?.text ?? '');
+      picture.push(...labels, ...labels.map((n) => ({ ...n, value: Math.abs(n.value) })));
+    }
+    for (const value of numbers(page.claim)) {
+      if (!found(value, picture)) warnings.push(`第 ${n} 頁 claim：數字 ${value.text} 未出現在當頁畫面；請補入 visual／metric／lede／body，讓主張與畫面可核對。`);
+    }
+    const noteLines = (Array.isArray(page.notes) ? page.notes : [page.notes ?? '']).flatMap((text) => normalize(text).split(/\r\n|\r|\n/));
+    if (page.type !== 'cover' && !noteLines.some((line) => line.trim() && !/^(?:計算|算法)\s*:/.test(line.trim()))) {
+      warnings.push(`第 ${n} 頁 notes：缺少講稿或只有計算行；請另寫 1～3 句要說的話與資料限制。`);
+    }
   }
   const result = await build(story);
-  return { ...result, pages: story.pages.length };
+  return { ...result, warnings: [...result.warnings, ...warnings], pages: story.pages.length };
 }
 
 if (isMain(import.meta.url)) {

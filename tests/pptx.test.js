@@ -167,6 +167,26 @@ const geometry = (shape) => {
   return { x: Number(off.x) / unit, y: Number(off.y) / unit, w: Number(ext.cx) / unit, h: Number(ext.cy) / unit };
 };
 const shapeFill = (shape) => children(one(shape, 'p:spPr'), 'a:solidFill').flatMap((f) => nodes(f, 'a:srgbClr')).map((c) => c.attrs.val);
+
+test('single-series line does not consume deck-wide categorical colours', async () => {
+  for (const extra of [{}, { categories: ['總量'] }]) {
+    const { zip } = await deck([
+      evidence({ kind: 'line', x: ['前期', '本期'], series: [{ name: '總量', values: [1, 2] }], ...extra }),
+      evidence({ kind: 'grouped', seriesRole: 'categorical', x: ['本期'], series: [{ name: '甲', values: [3] }, { name: '乙', values: [4] }] }),
+    ]);
+    const chart = await chartAt(zip, 2);
+    assert.deepEqual(nodes(chart.root, 'c:ser').map((s) => value(one(s, 'c:spPr'), 'a:srgbClr')), C.categorical.slice(0, 2).map(hex));
+  }
+});
+
+test('native rank highlights both named channels and funnel SVG includes loss labels', async () => {
+  const rows = [{ label: '甲', value: 2400 }, { label: '乙', value: 1800 }, { label: '丙', value: 1260 }];
+  const { zip } = await deck([evidence({ kind: 'rank', rows, focus: ['乙', '丙'] }), evidence({ kind: 'funnel', steps: rows, loss: true, focus: ['乙', '丙'] })]);
+  const chart = await chartAt(zip, 1);
+  assert.equal(nodes(chart.root, 'c:dPt').filter((p) => nodes(p, 'a:srgbClr').some((c) => c.attrs.val === hex(C.focus))).length, 2);
+  const media = await Promise.all(files(zip, /\.svg$/).map((name) => zip.file(name).async('string')));
+  assert.ok(media.some((s) => s.includes('−600') && s.includes('−540')));
+});
 const sourceY = (root) => Math.max(...nodes(root, 'p:sp').filter((s) => nodes(s, 'a:prstGeom').some((g) => g.attrs.prst === 'line') && Math.abs(geometry(s).w - (T.slide.widthPx - 2 * T.margin.x)) < 0.01).map((s) => geometry(s).y));
 const near = (actual, expected, why) => assert.ok(Math.abs(actual - expected) < 0.01, `${why}: ${actual} != ${expected}`);
 
@@ -235,7 +255,27 @@ test('summary warns for capacity and long lead, body, number, label, and note wi
   assert.ok(buffer.length);
   for (const n of [1, 4]) assert.ok(warnings.some((w) => w.includes(`第 ${n} 頁主管摘要`) && /2～3/.test(w)));
   for (const n of [2, 3]) assert.ok(!warnings.some((w) => w.includes(`第 ${n} 頁`)));
-  for (const pattern of [/建議超過一行/, /說明超出三行/, /數字超出欄寬/, /說明超過一行/, /超出單列容量/]) assert.ok(warnings.some((w) => /第 5 頁/.test(w) && pattern.test(w)), String(pattern));
+  for (const pattern of [/visual\.lead.*2 行.*上限 1 行/, /visual\.body.*4 行.*上限 3 行/, /數字超出欄寬/, /visual\.items\[0\]\.note.*2 行.*上限 1 行/, /超出單列容量/]) assert.ok(warnings.some((w) => /第 5 頁/.test(w) && pattern.test(w)), String(pattern));
+});
+
+test('process visual.note sits below steps, reserves room, and validates its text', async () => {
+  const visual = { steps: [{ heading: '收件', body: '核對資料' }, { heading: '交接' }, { heading: '完成' }], note: '遇到缺件，回到收件補齊。' };
+  const { zip, warnings } = await deck([{ type: 'process', claim: '先核對再交接', visual }]);
+  const root = await xml(zip, 'ppt/slides/slide1.xml');
+  const note = geometry(shapeText(root, visual.note)), body = geometry(shapeText(root, '核對資料'));
+  assert.ok(note.y >= body.y + T.type.body.px * 1.45 + 24);
+  assert.ok(note.y + note.h <= sourceY(root) - T.margin.sourceGap);
+  assert.deepEqual(warnings, []);
+  assert.throws(() => validateStory({ pages: [{ type: 'process', claim: '流程', visual: { ...visual, note: 1 } }] }), /visual\.note/);
+  const overflow = await deck([{ type: 'process', claim: '流程', visual: { ...visual, note: '甲\r\n乙' } }]);
+  assert.ok(overflow.warnings.some((w) => /visual\.note.*2 行.*上限 1 行/.test(w)));
+});
+
+test('positive delta uses a compact sign in PowerPoint and SVG', async () => {
+  const { zip } = await deck([{ type: 'numbers', claim: '變化', visual: { items: [{ label: '甲', prev: 100, value: 310, better: 'higher' }, { label: '乙', value: 1 }] } }]);
+  assert.ok(textOf(await xml(zip, 'ppt/slides/slide1.xml')).includes('+210'));
+  const { svg } = await import('../scripts/svg.js').then(({ render }) => render({ kind: 'dumbbell', periods: ['前期', '本期'], rows: [{ label: '甲', values: [100, 310] }] }));
+  assert.ok(svg.includes('+210'));
 });
 
 test('close uses the cover background, white bold tasks, right-aligned muted owners/dates and readable footer', async () => {
@@ -312,7 +352,7 @@ test('dark closing lede uses a readable onDark color', async () => {
   assert.ok(contrast(C.onDark[1], C.dark) >= 4.5);
 });
 
-test('columns, flow, and process content sits roughly centered below the lede', async () => {
+test('columns and process anchor below the lede while flow retains its centered band', async () => {
   const pages = [
     { type: 'columns', claim: '結論', lede: '說明行', visual: { items: [{ kicker: '類別', heading: '資料', body: '資料說明' }, { heading: '作業', body: '作業說明' }] } },
     { type: 'flow', claim: '結論', lede: '說明行', visual: { nodes: [{ heading: '起點' }, { heading: '終點' }], note: '補充說明' } },
@@ -340,8 +380,31 @@ test('columns, flow, and process content sits roughly centered below the lede', 
       const body = geometry(shapeText(root, '完成交接'));
       last = body.y + T.type.body.px * 1.45;
     }
-    assert.ok(first > start, `${pages[i].type}: content follows lede`);
-    assert.ok(Math.abs((first - start) - (end - last)) < 120, `${pages[i].type}: content is roughly centered`);
+    if (i === 1) {
+      assert.ok(first > start, 'flow: content follows lede');
+      assert.ok(Math.abs((first - start) - (end - last)) < 120, 'flow: content is roughly centered');
+    } else near(first, start + 28, `${pages[i].type}: band starts below lede`);
+  }
+});
+
+test('short statements centre, tall statements stop at the title position, both preserve focus', async () => {
+  const claims = ['先確認需求', '甲\n乙\n丙\n丁\n戊\n己\n庚'];
+  const { zip, warnings } = await deck(claims.map((claim) => ({ type: 'statement', claim, focus: claim.slice(0, 1), lede: '原稿範圍', note: '資料尚待確認。' })));
+  for (let i = 0; i < claims.length; i++) {
+    const root = await xml(zip, `ppt/slides/slide${i + 1}.xml`), s = shapeText(root, claims[i].replaceAll('\n', ''));
+    const anchor = T.margin.top + T.type.label.px + T.margin.titleGap;
+    if (i === 0) assert.ok(geometry(s).y > anchor + 100, 'short statement is centred, not pinned to the top');
+    else near(geometry(s).y, anchor, 'tall statement stops at title anchor');
+    assert.ok(nodes(s, 'a:srgbClr').some((c) => c.attrs.val === hex(C.focus)));
+  }
+  assert.ok(warnings.some((w) => /第 2 頁.*高度/.test(w)));
+});
+
+test('statement rich text uses identical paragraphs for LF, CRLF, and CR', async () => {
+  const { zip } = await deck(['\n', '\r\n', '\r'].map((eol) => ({ type: 'statement', claim: `甲${eol}乙`, focus: '乙' })));
+  for (let n = 1; n <= 3; n++) {
+    const root = await xml(zip, `ppt/slides/slide${n}.xml`), shape = shapeText(root, '甲乙');
+    assert.deepEqual(nodes(one(shape, 'p:txBody'), 'a:p').map(textOf), ['甲', '乙']);
   }
 });
 
@@ -393,7 +456,7 @@ for (const [type, base, medium] of [['table', 72, 6], ['compare', 110, 4], ['clo
       if (i === 0) near(heights[0], base * 1.8, 'sparse row cap');
       else near(top + heights.reduce((a, b) => a + b, 0), end, 'content ends at source gap');
       if (i === 2) assert.ok(heights[0] < base, 'crowded rows keep shrinking');
-      assert.equal(warnings.some((w) => w.includes(`第 ${i + 1} 頁`) && /列高不足/.test(w)), i === 2);
+      assert.equal(warnings.some((w) => w.includes(`第 ${i + 1} 頁`) && /visual\..*估算 \d+ 行，上限 \d+ 行.*超出容量/.test(w)), i === 2);
     }
   });
 }
@@ -740,7 +803,7 @@ test('steps, comparison, and close warn when their rows cannot fit text', async 
     { type: 'close', claim: '決議', visual: { rows: many.map((task) => ({ task, owner: '負責人', due: '月底' })) } },
   ];
   const { warnings } = await deck(pages);
-  for (let n = 1; n <= pages.length; n++) assert.ok(warnings.some((w) => w.includes(`第 ${n} 頁`) && /列|放不下|排不下/.test(w)), `page ${n}: row height warning`);
+  for (let n = 1; n <= pages.length; n++) assert.ok(warnings.some((w) => w.includes(`第 ${n} 頁`) && /visual\..*估算 \d+ 行，上限 \d+ 行.*超出容量/.test(w)), `page ${n}: row height warning`);
 });
 
 test('string number tiles display verbatim and do not calculate a delta or warn about better', async () => {
@@ -748,7 +811,7 @@ test('string number tiles display verbatim and do not calculate a delta or warn 
   const root = await xml(zip, 'ppt/slides/slide1.xml'), content = textOf(root);
   assert.ok(content.includes('NT$ 600 萬'));
   assert.ok(content.includes('尚待估算'));
-  assert.doesNotMatch(content, /NaN|＋100|−|±0/);
+  assert.doesNotMatch(content, /NaN|[+＋]100|−|±0/);
   assert.ok(!warnings.some((w) => /better|前期/.test(w)));
 });
 

@@ -2,21 +2,25 @@
 
 每個版型自帶一個主張。先寫每頁 `claim`，再選能支撐它的版型；稿子撐不起主張時換版型。版型是工具箱，不必湊齊，也不必固定頁數。決策型範例見 [story.json](../examples/story.json)，說明型範例見 [story-explain.json](../examples/story-explain.json)。
 
+決策骨架：封面 → 主管摘要 → 現況／需求 → 證據 → 診斷或方案 → 決議事項。無數字的決策稿，在封面後以帶 `focus` 的 `statement` 提出核心判斷。每張證據頁的 `claim` 都要被摘要或決議採用；無法指出支撐哪個判斷或行動的孤立頁刪去。
+
 ## 整份簡報與共通欄位
 
 根物件有 `title`、選用的 `date`、`author` 和依播放順序排列的 `pages`。沒有日期就省略 `date`，封面不顯示日期。每頁填 `type`、一句 `claim` 與 `sources.source`；有內容才填該版型的選用欄位。
 
 | 欄位 | 用法 |
 | --- | --- |
-| `kicker` | 頁首主題；封面作單位名稱。章節尺標按非封面頁的 `kicker` 首次出現順序去重。 |
+| `kicker` | 頁首主題；封面作單位名稱。章節尺標按非封面頁的 `kicker` 首次出現順序去重，只在 `section` 頁顯示。 |
 | `claim` | 可由內容支持的結論。長標題可用 `\n` 指定斷點；不要只寫「背景」或「分析結果」。 |
 | `lede` | 封面、章節以外的內容頁選填，一行小字放在標題下、內容上，交代「指標・範圍・期間・單位」。省略時不佔高度。 |
 | `note` | 畫面上的補充，適用於 `cover`、`section`、`statement`、`evidence`。 |
 | `visual` | 依版型放圖表或結構化內容；欄位見下表。 |
-| `sources` | 每頁來源列：`source` 必填；已知時填 `unit`、`period`；`more` 是口徑、算法或缺口的字串陣列。 |
+| `sources` | 每頁可見來源列：`source` 必填；已知時填 `unit`、`period`；`more` 是會上投影片的口徑、算法或缺口字串陣列。 |
 | `notes` | 講者備註，可為字串或字串陣列，不在畫面顯示。 |
 
 `note` 是畫面補充，`notes` 是講稿。選填格若稿子沒有提及，省略整格；不要填空白卡片或佔位字。論證需要、讀者會以為有的數字若未提供，數字格或比較格用 `null` 保留位置，畫面標「未提供」並列入來源列；`0` 是有效觀察值。證據頁的 `table` 圖種也在缺值格原位標「未提供」。其他圖表的 `null` 可能留白、斷線或略去圖元，依[圖表選單](charts.md)處理並列入來源列；若缺值位置本身是論證重點，改用能在原位標示的數字、比較或表格版型。來源列建議兩行內，超出會警告而不縮字。圖表 `visual.source` 不能代替頁面的 `sources.source`。
+
+`focus` 型別依用途：`statement` 用頁面層字串，逐字對應 `claim`；`list`／`process`／`flow`／`columns` 用 `visual.focus` 零起算索引。圖表通常用資料名稱，`rank`／`funnel` 也接受名稱陣列；`histogram` 用組界 `from` 數值。各圖以[圖表欄位](charts.md)為準。
 
 ## 版型與各自的主張
 
@@ -30,7 +34,7 @@
 | 一句話 `statement` | 先記住這個判斷。 | 無；選用頁面 `focus` 指定 `claim` 中的原文，找不到會警告。 |
 | 證據 `evidence` | 這張圖或表支持標題判斷。 | 一張[圖表](charts.md)；選用頁面 `metric: {label?, value, unit?}` 和 `note` 作右側結論欄。 |
 | 數字 `numbers` | 這幾個指標一起說明狀態。 | `items: [{label, value, unit?, ...}]`；建議 2～4 格，過長數字與高度會警告。 |
-| 診斷清單 `list` | 這幾件事有先後，先處理這個。 | `items` 3～5 項；`focus` 選一項，列間細線。 |
+| 診斷清單 `list` | 這幾件事需要處理；原稿有優先序時標出重點。 | `items` 3～5 項；選用 `tag`／`focus`，列間細線。 |
 | 無日期流程 `process` | 事情照這個順序走，現在在這一步。 | `steps` 3～6 步；`focus` 標目前步驟，超出欄寬會警告。 |
 | 核心數字 `kpi` | 這一個數字最重要。 | `main` 含 1～3 個 `benchmarks`，`secondary` 0～4 個。 |
 | 因果 `flow` | A 加 B 造成 C，所以做 D。 | `nodes` 2～5 個，`connectors` 連接相鄰方框；預設強調最後一框。 |
@@ -41,7 +45,9 @@
 
 ### 摘要、數字與核心數字
 
-`summary.visual` 為 `{lead, body?, items}`；`lead` 必填，`body` 選填，`items` 使用 `numbers` 的數字格結構並可加一行 `note`。右欄每項顯示數字、標籤與補充，列間用細線。若沒有支撐建議的數字，改用 `process` 或 `columns`。
+`summary.visual` 為 `{lead, body?, items}`；`lead` 必填，補充標題之外的建議或條件；`body` 選填，`items` 使用 `numbers` 的數字格結構並可加一行 `note`。右欄每個數字格都支持 `lead`，共用口徑；不同期間、分母或實績／預估基準在該格 `note` 註明。若沒有支撐建議的數字，以帶 `focus` 的 `statement` 開場。
+
+預設設計層的 `body` 每行約 25 個中文字、最多三行約 75 字；標點與手動換行也佔容量，末行孤字需調整斷點。
 
 `numbers.visual.items` 的每項是 `{label, value, unit?, prev?, mode?, digits?, better?, deltaSuffix?}`。`value` 可為數字、顯示字串或 `null`；數字依 `digits` 格式化。四格時使用設計層較小的固定數字字級，過長仍警告而不自動縮字。數字搭 `prev` 時可算增減，須明寫 `better: "higher"` 或 `"lower"`；`mode` 預設 `abs`（差額），另有 `pct`（相對百分比）、`pp`（百分點）。前期為 0 時改用差額；字串值不計算增減。
 
@@ -51,7 +57,11 @@
 
 `list.visual` 為 `{items: [{tag?, heading, body?, note?}], focus?}`。`items` 建議 3～5 項：左欄短標 `tag`、中欄粗體 `heading` 與一行 `body`、右欄一行小字 `note`；列間細線。`focus` 是從 0 起算的項目索引，只讓該列 `tag` 與 `heading` 用重點色。選填文字沒有內容就省略該格。
 
-`process.visual` 為 `{steps: [{label?, heading, body?}], focus?}`。`steps` 建議 3～6 步，從左到右以細線串起圓點；上方小字 `label` 省略時顯示「步驟 1」等，下方放粗體 `heading` 和 `body`。`focus` 是從 0 起算的目前步驟索引，該步圓點與文字用重點色。已有月份的時程使用 `steps` 版型。
+原稿給了順序或優先序時才用 `tag`／`focus`；未決事項用沒有 `tag`／`focus` 的 `list`，或用各欄同重的 `columns`。將推論的優先序與理由寫在 `notes`，畫面保留原稿已確認的內容。
+
+`process.visual` 為 `{steps: [{label?, heading, body?}], focus?, note?}`。`steps` 建議 3～6 步，從左到右以細線串起圓點；上方小字 `label` 省略時顯示「步驟 1」等，下方放粗體 `heading` 和 `body`。`focus` 是從 0 起算的目前步驟索引，該步圓點與文字用重點色。已有月份的時程使用 `steps` 版型。原稿中的例外／分支可放 `visual.note`，顯示在整段流程下方的一行補充；推論的分支放 `notes`。
+
+預設設計層下，三步的 `heading` 每行約 14 字、`body` 約 16 字；六步分別約 6 字、7 字。先以短標題加一至兩行說明編排，再看警告與預覽。`process`、`columns` 從標題／`lede` 下的內容起點向下排，`statement` 的大字判斷在頁面垂直置中，過高時從標題位置開始。
 
 `flow.visual` 為 `{nodes: [{label?, heading, body?}], connectors?, focus?, note?}`。`nodes` 建議 2～5 個方框，由左到右閱讀；`connectors` 是長度比方框少一的符號陣列，每段預設「→」，可用「＋」或「＝」。`focus` 是從 0 起算的方框索引，預設最後一個，該框填滿重點色並使用設計層對應文字色。`note` 是方框下一行補充；節點選填格省略時不留佔位。
 
@@ -63,6 +73,14 @@
 
 `steps.visual` 為 `{start: "YYYY-MM", end: "YYYY-MM", phases: [{name, note?, from: "YYYY-MM", to: "YYYY-MM"}]}`。起訖月都計入長條；每階段須在整體時程內。沒有來源日期就改用 `process`。
 
-`close.visual` 為 `{rows: [{task, owner?, due?}]}`。`due` 是顯示文字，可放來源提供的日期或相對時點，不轉成日期軸。若稿子未提負責人或期限，整欄可省略；若責任歸屬是決策必需的缺口，在 `sources.more` 寫明。收尾若不需要決定，改用 `list`。
+`close.visual` 為 `{rows: [{task, owner?, due?}]}`。`due` 是顯示文字，可放來源提供的日期或相對時點，不轉成日期軸。單格未知時留空或省略該列的欄位，其他列的已知值照常保留；整欄都未知時才省略整欄。若責任歸屬是決策必需的缺口，在 `sources.more` 寫明。未決事項改用沒有 `tag`／`focus` 的 `list` 或 `columns`。
+
+欄頭固定為「下一步／負責人／期限」（整欄省略時隱藏該欄頭）；`kicker` 寫議題，例如「試行安排」。預設每行約可放 `task` 28 字、`owner` 12 字、`due` 7 字，稀疏列最多約三行；列數增加時容量變少。負責人與期限宜短寫，單格末行孤字會警告。
 
 表格、比較頁及收尾頁會依可用高度調整資料列，字級不變。若文字仍放不下，刪內容或拆頁。建檔成功只證明檔案能產生；字級、重疊、圖文關係與故事是否成立，仍須逐頁預覽驗收。
+
+## 預覽與交付
+
+有 PowerPoint 的 Mac 使用 PowerPoint；沒有 PowerPoint 但有 LibreOffice（`soffice`）時使用 LibreOffice。執行 `node scripts/preview.js out/deck.pptx out/preview`，需要 `pdftoppm`、`ffmpeg`，輸出 `page-N.png`、`sheet.png`（整份概覽）與 `deck.pdf`。LibreOffice 可能替換字型，正式字型仍需在 PowerPoint 複查。兩者都沒有時交代安裝需求；[SVG／PNG 圖表預覽](charts.md#共通欄位與輸出)可驗圖表，整頁版面仍標未驗。
+
+每張內容頁的 `notes` 寫 1～3 句要說的話與資料限制，計算行另列。預覽逐頁核對主張、強調項目、口徑、空間分配與閱讀順序，找出末行單一中文字、過短末行或不均勻斷行。0 項容量警告只表示估算未偵測到溢出，換行品質需看圖。交付記錄最弱頁修改前後及理由；列出實際輸出的原生圖與 SVG，將「實際在 PowerPoint 改一個原生圖數值」標為完成或未驗。

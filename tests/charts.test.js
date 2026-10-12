@@ -55,6 +55,35 @@ test('rank: exactly one focus bar, the rest gray', () => {
   assert.equal(count(svg, new RegExp(`<rect[^>]*fill="${C.gray}"`, 'g')), 7);
 });
 
+test('rank and funnel accept multiple named focuses and warn for each missing name', () => {
+  for (const kind of ['rank', 'funnel']) {
+    const data = [{ label: '甲', value: 2400 }, { label: '乙', value: 1800 }, { label: '丙', value: 1260 }];
+    const { model } = render({ kind, [kind === 'rank' ? 'rows' : 'steps']: data, focus: ['乙', '丙', '缺項'] });
+    const rows = model.rows ?? model.steps;
+    assert.deepEqual(rows.filter((r) => r.focus).map((r) => r.label).sort(), ['丙', '乙']);
+    assert.equal(rows.find((r) => r.label === '甲').color, C.gray);
+    assert.ok(model.warnings.some((w) => w.includes('focus「缺項」')));
+    assert.throws(() => render({ kind, [kind === 'rank' ? 'rows' : 'steps']: data, focus: [1] }), /focus/);
+  }
+});
+
+test('funnel loss labels show drops, preserve zero, and omit unknown transitions', () => {
+  const steps = [{ label: '開始', value: 2400 }, { label: '送出', value: 1800 }, { label: '確認', value: 1260 }, { label: '持平', value: 1260 }, { label: '未知', value: null }, { label: '結束', value: 1000 }];
+  const { model, svg } = render({ kind: 'funnel', steps, loss: true });
+  assert.deepEqual(model.steps.map((s) => s.lossText), [null, '−600', '−540', '0', null, null]);
+  assert.ok(svg.includes('流失數') && svg.includes('−600') && svg.includes('−540'));
+  assert.ok(!render({ kind: 'funnel', steps }).svg.includes('−600'));
+  const rising = render({ kind: 'funnel', steps: [{ label: '甲', value: 10 }, { label: '乙', value: 12 }], loss: true });
+  assert.equal(rising.model.steps[1].lossText, '+2');
+  assert.throws(() => render({ kind: 'funnel', steps, loss: 'true' }), /loss/);
+});
+
+test('funnel loss heading stays valid for people and other count units', () => {
+  const { svg } = render({ kind: 'funnel', unit: '件', loss: true, steps: [{ label: '送件', value: 100 }, { label: '完成', value: 70 }] });
+  assert.ok(svg.includes('流失數'));
+  assert.ok(!svg.includes('流失人數'));
+});
+
 test('line: a missing point breaks the line and is listed', () => {
   const values = [3, 4, null, 6, 7];
   const { svg, model } = render({ kind: 'line', focus: 'A', x: ['1月', '2月', '3月', '4月', '5月'], series: [{ name: 'A', values }, { name: 'B', values: [1, 2, 3, 4, 5] }] });
@@ -66,7 +95,7 @@ test('slope: periods use two Ordered steps, deltas follow better', () => {
   const { svg, model } = render({ kind: 'slope', better: 'lower', periods: ['前', '後'], rows: [{ label: 'A', values: [10, 8] }, { label: 'B', values: [5, 6] }] });
   assert.deepEqual(model.colors, [C.ordered[0], C.ordered.at(-1)]);
   assert.ok(svg.includes(`fill="${C.ordered[0]}"`) && svg.includes(`fill="${C.ordered.at(-1)}"`));
-  assert.deepEqual(model.rows.map((r) => r.delta), [{ text: '−2', color: C.better }, { text: '＋1', color: C.worse }]);
+  assert.deepEqual(model.rows.map((r) => r.delta), [{ text: '−2', color: C.better }, { text: '+1', color: C.worse }]);
 });
 
 test('share: categories past the 4th fold into 其他, kept by shared order', () => {

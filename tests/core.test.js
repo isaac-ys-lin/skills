@@ -30,7 +30,7 @@ test('formatValue: thousands separators, minus sign, suffix', () => {
 
 test('delta: sign is literal, color follows better', () => {
   const up = delta(312, 398, { better: 'higher' });
-  assert.deepEqual(up, { text: '＋86', color: C.better });
+  assert.deepEqual(up, { text: '+86', color: C.better });
   const wait = delta(12.4, 7.8, { better: 'lower', digits: 1 });
   assert.deepEqual(wait, { text: '−4.6', color: C.better });
   const ratio = delta(0.9, 0.86, { better: 'higher', digits: 2 });
@@ -39,11 +39,11 @@ test('delta: sign is literal, color follows better', () => {
 
 test('delta: edge cases', () => {
   assert.equal(delta(null, 5), null, 'no previous value: omit');
-  assert.deepEqual(delta(0, 5, { mode: 'pct' }), { text: '＋5', color: C.better }, 'previous 0: absolute only');
+  assert.deepEqual(delta(0, 5, { mode: 'pct' }), { text: '+5', color: C.better }, 'previous 0: absolute only');
   assert.deepEqual(delta(5, 5), { text: '±0', color: C.unchanged }, 'no change');
-  assert.deepEqual(delta(66, 68.1, { mode: 'pp', digits: 1 }), { text: '＋2.1 個百分點', color: C.better });
-  assert.deepEqual(delta(100, 128, { mode: 'pct' }), { text: '＋28%', color: C.better });
-  assert.deepEqual(delta(10, 10.04, { digits: 1 }), { text: '＋<0.1', color: C.better }, 'tiny change keeps its sign');
+  assert.deepEqual(delta(66, 68.1, { mode: 'pp', digits: 1 }), { text: '+2.1 個百分點', color: C.better });
+  assert.deepEqual(delta(100, 128, { mode: 'pct' }), { text: '+28%', color: C.better });
+  assert.deepEqual(delta(10, 10.04, { digits: 1 }), { text: '+<0.1', color: C.better }, 'tiny change keeps its sign');
 });
 
 test('niceTicks: positive, mixed and all-negative ranges', () => {

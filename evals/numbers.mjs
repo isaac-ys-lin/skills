@@ -1,7 +1,7 @@
 // Shared numeric provenance rules for slide stories and HTML reports.
 export const normalize = (text) => String(text).normalize('NFKC').replaceAll('−', '-').replace(/百分之\s*([\d.]+)/g, '$1%');
 const literal = String.raw`(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?`;
-export const calculationPattern = /(?:計算|算法)\s*:\s*([^\n;；。]+)/g;
+export const calculationPattern = /(?:計算|算法)\s*:\s*([^\r\n;；。]+)/g;
 const token = (text) => {
   const value = Number(text.replace(/[,\s%]/g, ''));
   const valid = Number.isFinite(value) && !(value === 0 && /[1-9]/.test(text.split(/[eE]/)[0]));

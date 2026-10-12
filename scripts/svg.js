@@ -455,9 +455,11 @@ DRAW.funnel = (m, W, H) => {
   const labelW = Math.max(...m.steps.map((s) => textWidth(s.label, PX))) + 20;
   const convW = Math.max(textWidth('較上一步', PX), ...m.steps.map((s) => textWidth(s.convText ?? '', PX))) + 8;
   const valW = Math.max(...m.steps.map((s) => textWidth(s.text ?? '', PX))) + 32;
-  const x0 = labelW, x1 = W - convW - valW;
+  const lossW = m.steps.some((s) => s.lossText !== null) ? Math.max(textWidth('流失數', PX), ...m.steps.map((s) => textWidth(s.lossText ?? '', PX))) + 24 : 0;
+  const x0 = labelW, x1 = W - convW - valW - lossW;
   const cx = (x0 + x1) / 2;
   P.push(text(W, LINE * 0.8, '較上一步', { anchor: 'end' }));
+  if (lossW) P.push(text(W - convW - 16, LINE * 0.8, '流失數', { anchor: 'end' }));
   const y0 = LINE * 1.4, band = (H - y0) / m.steps.length;
   const bh = clamp(band * 0.62, 20, 64);
   m.steps.forEach((s, i) => {
@@ -468,6 +470,7 @@ DRAW.funnel = (m, W, H) => {
     P.push(rect(cx - w / 2, cy - bh / 2, w, bh, { fill: s.color }));
     const style = { fill: s.focus ? C.focus : C.text, weight: s.focus ? 600 : undefined };
     P.push(text(x1 + 16, mid(cy), s.text, style));
+    if (s.lossText !== null) P.push(text(W - convW - 16, mid(cy), s.lossText, { ...style, anchor: 'end' }));
     if (s.convText) P.push(text(W, mid(cy), s.convText, { ...style, anchor: 'end' }));
   });
   return P.join('');

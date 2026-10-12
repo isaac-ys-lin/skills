@@ -4,14 +4,16 @@ Clayprint 把文字稿整理成有判斷與來源的簡報或 HTML 報告，也�
 
 ## 怎麼一起工作
 
+交給 AI 時，連同文字稿說明背景：給誰看、要支持什麼判斷或決定。同一份稿，目的不同，取捨也不同。
+
 ```mermaid
 flowchart LR
   A[文字稿] --> B["給 AI 的指引<br/>SKILL.md、references/"]
   B --> C[story.json／報告 HTML／圖表 JSON]
-  D["你的設計<br/>design/tokens.json、design/brief.md"] --> E
-  C --> E["做成品的方法<br/>scripts/"]
+  D["設計設定<br/>design/tokens.json、design/brief.md"] --> E
+  C --> E["程式<br/>scripts/"]
   E --> F[PPTX／HTML／SVG]
-  F --> G["檢查與試用<br/>evals/check.mjs、scripts/check-design.js、tests/"]
+  F --> G["檢查成品<br/>evals/check.mjs、scripts/check-design.js、tests/"]
   G --> H[人看預覽，修改最弱的一頁]
   H --> B
   H --> D
@@ -22,9 +24,9 @@ flowchart LR
 | 片中說法 | 對應檔案 | 什麼時候改 |
 | --- | --- | --- |
 | 給 AI 的指引 | `SKILL.md`、`references/` | 用途、內容流程、支援範圍改變時 |
-| 你的設計 | `design/tokens.json`、`design/brief.md` | 改顏色、字型、字級、線寬時 |
-| 做成品的方法 | `scripts/` | 改圖種、版型或輸出方式時 |
-| 檢查與試用 | `tests/`、`examples/`、`evals/` | 發現新問題或需要新範例時 |
+| 設計設定 | `design/tokens.json`、`design/brief.md` | 改顏色、字型、字級、間距、線寬時 |
+| 程式 | `scripts/` | 改圖種、版型或輸出方式時 |
+| 檢查成品 | `tests/`、`examples/`、`evals/` | 發現新問題或需要新範例時 |
 
 ## 安裝與 30 秒上手
 

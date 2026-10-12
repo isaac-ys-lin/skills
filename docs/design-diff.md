@@ -1,19 +1,19 @@
 # Phase 3：PowerPoint 與設計稿的差異
 
-對照 [簡報樣張](../design/claude-design/Blueprint%20Deck.dc.html)、[圖表樣張](../design/claude-design/Blueprint%20Charts.dc.html) 與 [規格 v1.1](../design/spec.md)。色彩、字級與線寬以[目前生效的設計層](../design/README.md)為準。以下實機驗收紀錄對應原本的 B′ 深藍版本，clay 輸出仍需另行驗收。依 Claude 回報，PowerPoint 實際開檔與匯出檢查已完成；以下保留設計差異、修正與編輯限制，剩餘實機驗收是使用者在影片彩排時操作「編輯資料」。
+對照 [簡報樣張](../design/claude-design/Blueprint%20Deck.dc.html)、[圖表樣張](../design/claude-design/Blueprint%20Charts.dc.html) 與 [規格 v1.1](../design/spec.md)。色彩、字級與線寬以[目前生效的設計層](../design/README.md)為準。以下實機驗收紀錄對應原本的 B′ 深藍版本，clay 輸出仍需另行驗收。既有開檔紀錄與當次輸出的驗收分開記錄；正式交付需逐頁預覽，並實際操作「編輯資料」。
 
 ## 版型與字型
 
 | 項目 | PowerPoint 的做法與原因 |
 | --- | --- |
-| 證據頁兩期比較 | `examples/story.json` 第 4 頁採斜率圖，取代簡報樣張的分組長條。重寫的圖表選單不包含分組長條；兩期仍用 Ordered 舊淺、新深的標記，資料與結論不變。 |
+| 證據頁兩期比較 | `examples/story.json` 第 5 頁採斜率圖，取代簡報樣張的分組長條。目前也支援分組長條；此頁兩期仍用 Ordered 舊淺、新深的標記，資料與結論不變。 |
 | 字型 | 設計稿優先使用 Helvetica Neue／蘋方；PPTX 的文字、原生圖表、嵌入 SVG 及 PNG 後備統一 Microsoft JhengHei（微軟正黑體），主題的 Hant 與 major／minor 東亞字型也一致，避免中文回退為新細明體。獨立 SVG／PNG 的預設字型不變。字型檔不嵌入 PPTX，接收端仍需有正黑體。 |
 | 大數字字重 | 正黑體沒有設計稿使用的 300 字重；數字格及結論大數字採 regular，其餘強調文字採 bold。 |
-| 排版餘量 | 正黑體的字高與字寬不同，標題行數採可用寬度的 95% 估算，來源格的水平位移採估算字寬的 1.1 倍；來源列與內文可能較設計稿早換行。大數字依欄寬縮字，步驟、比較與收尾列高不足會警告，仍需看輸出畫面判斷。 |
+| 排版餘量 | 正黑體的字高與字寬不同，標題行數採可用寬度的 95% 估算，來源格的水平位移採估算字寬的 1.1 倍；來源列與內文可能較設計稿早換行。大數字超過欄寬、步驟／比較／收尾列高不足時警告，固定字級不縮小，仍需看輸出畫面判斷。 |
 
 ## 圖表與可編輯範圍
 
-rank、line、slope、share、scatter 使用原生圖表及內嵌活頁簿；table 使用原生 PowerPoint 表格，可直接改儲存格，沒有圖表活頁簿。其餘八種圖（multiples、bridge、histogram、strip、matrix、dumbbell、funnel、heat）維持 SVG 加 PNG 後備，圖中資料須改 spec 後重新輸出。
+rank、line、slope、share、scatter、grouped、sharetrend、ordered 使用原生圖表及內嵌活頁簿；table 使用原生 PowerPoint 表格，可直接改儲存格，沒有圖表活頁簿。其餘圖種維持 SVG 加 PNG 後備，圖中資料須改 spec 後重新輸出。
 
 | 項目 | PowerPoint 的做法、原因與限制 |
 | --- | --- |
@@ -34,14 +34,10 @@ rank、line、slope、share、scatter 使用原生圖表及內嵌活頁簿；tab
 
 原生圖的數值標籤使用 `showSerName`／`showVal`，並在逐點 `c:dLbl` 明定 `numFmt`，避免 PowerPoint 忽略系列層級格式；數字仍隨資料更新，不寫成靜態文字。scatter 名稱是上述例外。缺值從圖表 `numCache` 與活頁簿空儲存格移除，折線使用 `displayBlanksAs: gap`；0 則保留為觀察值。改內嵌資料只能更新 PowerPoint 的圖表，無法重新執行 Clayprint 的排序、Focus 選擇、極小值判定、缺值來源列或頁面結論；需要這些規則時應改原始 spec 後重產。
 
-## 驗收狀態與影片彩排
+## 交付前的編輯驗收
 
-依 Claude 回報，PowerPoint 開檔及匯出檢查已完成，並已修正表格 anchor、逐點數字格式及橫條數值軸位置。這是 Claude 的實機回報；本次 Codex 文件更新未操作 PowerPoint、AppleScript 或 `scripts/preview.js`。
+在 PowerPoint 點「編輯資料」，修改一個現有數值並關閉資料視窗，確認圖形與數值標籤同步更新。交付註記「實際在 PowerPoint 改一個原生圖數值：完成／未驗」，並列出原生圖、原生表格與 SVG 的頁碼。
 
-唯一剩餘的實機驗收安排在使用者的影片彩排：在 `out/native-charts.pptx`（依序為 rank、line、slope、share、scatter、table）點「編輯資料」，修改現有數字並關閉資料視窗，確認圖形與數值標籤同步更新。share 應改左側原始值，確認右側比例公式與段內百分比更新；rank、line、slope 可提高一筆數值，確認自動上界容納新值。scatter 若有明定 Max，超過上界的修改依上述例外手動調軸或重產。線尾固定索引、scatter 靜態名稱與新增資料欄限制不列為未修錯誤。
+share／sharetrend 改左側原始值，確認右側比例公式與段內百分比更新；rank、line、slope 提高一筆數值，確認自動上界容納新值。scatter 若有明定 Max，超過上界時依上述例外手動調軸或重產。線尾固定索引、scatter 靜態名稱與新增資料欄限制，依表內說明驗收。比例公式是否立即更新，需在 PowerPoint 實際確認。
 
-2026-10-09 本輪自動驗證（主 Agent 回報）：`npm test` 101／101 項通過，0 項略過；CLI 產生 `out/story.pptx` 無錯誤、無警告，第 4 頁是原生 slope，其餘頁沒有證據圖表。六頁 `out/native-charts.pptx` 成功產生，唯一警告為第 5 頁「原生散佈圖省略參考線；若要保留，請設定 native: false」。兩份 PPTX 的所有 chart XML 均經 jszip 讀取並通過 `xmllint --noout`；測試另有純 Node 的 XML 結構檢查。pptxgenjs 把零寫成空工作表儲存格的行為已依 model 修補。
-
-本輪輸出讀回：rank、line、slope 的 Max 均為自動；share 的 Max 為 1（100%）；slope 的數值軸隱藏且沒有格線。原生散佈範例的 x 軸原界為 20～60，兩端都有資料點貼界，故各外推一個 10 的 step 成為 10～70，Max 明定為 70；y 軸 Min 為 20、Max 為自動。Claude 已完成的表格 anchor 與軸位置實機檢查仍有效。
-
-最不確定的剩餘行為是 share 公式在「編輯資料」後是否立即更新圖表；需以影片彩排確認，不以 XML 結構檢查取代。
+預設 clay 的正增減符號使用半形 "+"，與數字放在同一文字串中；相較全形「＋」，減少字形左右留白，PowerPoint 與 SVG 共用同一個 token。色彩與負號不變，實際字型下的間距仍需預覽。

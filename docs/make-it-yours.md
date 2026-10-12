@@ -1,6 +1,6 @@
 # 把 Clayprint 改成你的
 
-**外觀**（顏色、字型、字級、線寬）從[設計層](../design/README.md)改起。**內容流程、版型、圖種**還要調整 [SKILL.md](../SKILL.md)、[references/](../references/layouts.md) 與 `scripts/`，並更新相關測試。PowerPoint 內的字型由設計層的 `font.slide` 決定（預設微軟正黑體）；字寬估算以正黑體校準，換字型後要看預覽確認換行。
+**外觀**（顏色、字型、字級、間距、線寬）從[設計層](../design/README.md)改起。**內容流程、版型、圖種**還要調整 [SKILL.md](../SKILL.md)、[references/](../references/layouts.md) 與 `scripts/`，並更新相關測試。PowerPoint 內的字型由設計層的 `font.slide` 決定（預設微軟正黑體）；字寬估算以正黑體校準，換字型後要看預覽確認換行。
 
 ## 五個步驟
 

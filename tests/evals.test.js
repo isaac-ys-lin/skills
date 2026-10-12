@@ -14,6 +14,131 @@ const rank = (value) => ({ kind: 'rank', rows: [{ label: '甲', value }] });
 const example = JSON.parse(readFileSync(new URL('../examples/story.json', import.meta.url), 'utf8'));
 const script = readFileSync(new URL('../evals/fixtures/example-script.md', import.meta.url), 'utf8');
 
+test('claim numbers absent from the page warn, while visible numbers and percent aliases pass', async () => {
+  const manuscript = '甲 12 件，乙 8 件，比例 32%，另有 20 件。';
+  for (const extra of [{}, { notes: '口頭補充 20 件。' }, { sources: { ...sources, more: ['合計 20 件'] } }]) {
+    const { warnings } = await check(story(rank(12), { ...extra, claim: '共有 20 件' }), manuscript);
+    assert.ok(warnings.some((w) => /第 1 頁 claim.*20.*畫面/.test(w)));
+  }
+  for (const extra of [{ metric: { value: 20 } }, { lede: '共有 20 件' }, { note: '共有 20 件' }]) {
+    assert.ok(!(await check(story(rank(12), { ...extra, claim: '共有 20 件' }), manuscript)).warnings.some((w) => /claim/.test(w)));
+  }
+  for (const [claim, value] of [['比例 32%', 0.32], ['比例 0.32', '32%']]) {
+    const { warnings } = await check(story({ items: [{ label: '比例', value }, { label: '件數', value: 12 }] }, { type: 'numbers', claim }), manuscript);
+    assert.ok(!warnings.some((w) => /claim/.test(w)));
+  }
+});
+
+test('claim drop counts match funnel loss labels only when enabled; conversions also count', async () => {
+  const visual = { kind: 'funnel', steps: [{ label: '開始', value: 2400 }, { label: '送出', value: 1800 }, { label: '確認', value: 1260 }] };
+  const extra = { claim: '600 人未送出、540 人未確認', notes: '計算：2400 - 1800 = 600\r\n算法：1800 - 1260 = 540' };
+  const manuscript = '開始 2400 人，送出 1800 人，確認 1260 人，轉換率 70%。';
+  assert.equal((await check(story(visual, extra), manuscript)).warnings.filter((w) => /claim/.test(w)).length, 2);
+  assert.ok(!(await check(story({ ...visual, loss: true }, extra), manuscript)).warnings.some((w) => /claim/.test(w)));
+  assert.ok(!(await check(story(visual, { claim: '確認轉換率 70%' }), manuscript)).warnings.some((w) => /claim/.test(w)));
+});
+
+test('claim matching includes rendered share percentages and excludes unused page fields', async () => {
+  const manuscript = '甲 600 件，乙 400 件；甲占 60%，待完成 20 件。';
+  const share = story({ kind: 'share', categories: ['甲', '乙'], rows: [{ label: '本期', values: [600, 400] }] }, { claim: '甲占 60%', notes: '說明本期組成比例。' });
+  assert.ok(!(await check(share, manuscript)).warnings.some((w) => /claim/.test(w)));
+  const visual = { steps: [{ heading: '收件' }, { heading: '交接' }, { heading: '完成' }] };
+  for (const extra of [{ metric: { value: 20 } }, { note: '20 件' }, { body: '20 件' }, { visual: { ...visual, source: '20 件' } }]) {
+    const input = story(visual, { type: 'process', claim: '待完成 20 件', notes: '說明流程。', ...extra });
+    assert.ok((await check(input, manuscript)).warnings.some((w) => /claim.*20/.test(w)), JSON.stringify(extra));
+  }
+});
+
+test('claim matching includes displayed number-tile deltas, but not unused column deltas', async () => {
+  for (const type of ['numbers', 'summary']) {
+    for (const [claim, value, prev] of [['增加 4 件', 12, 8], ['減少 4 件', 8, 12], ['增加 50%', 12, 8]]) {
+      const visual = { items: [{ label: '甲', value, prev, better: 'higher', mode: claim.includes('%') ? 'pct' : 'abs' }, { label: '乙', value: 8 }] };
+      if (type === 'summary') visual.lead = '先確認結果';
+      assert.ok(!(await check(story(visual, { type, claim, notes: '說明前後變化。' }), '甲 12 件，前期 8 件，差額 4 件，成長 50%。')).warnings.some((w) => /claim/.test(w)), type + claim);
+    }
+  }
+  const visual = { items: [{ heading: '甲', value: 12, prev: 8, better: 'higher' }, { heading: '乙', value: 8 }] };
+  assert.ok((await check(story(visual, { type: 'columns', claim: '增加 4 件', notes: '說明前後變化。' }), '甲 12 件，前期 8 件，差額 4 件。')).warnings.some((w) => /claim.*4/.test(w)));
+});
+
+test('claim matching shares the renderer category order when later categories fold', async () => {
+  const input = { pages: [
+    { type: 'evidence', claim: '首批類別', sources, notes: '說明首批類別。', visual: { kind: 'share', categories: ['甲', '乙', '丙', '丁'], rows: [{ label: '首批', values: [1, 1, 1, 1] }] } },
+    { type: 'evidence', claim: '其他占 100%', sources, notes: '說明合併後的類別。', visual: { kind: 'share', categories: ['戊', '己'], rows: [{ label: '次批', values: [600, 400] }] } },
+  ] };
+  const manuscript = '首批甲乙丙丁各 1。次批戊 600、己 400，分別占 60% 與 40%，合併為其他占 100%。';
+  assert.ok(!(await check(input, manuscript)).warnings.some((w) => /claim/.test(w)));
+  input.pages[1].claim = '戊占 60%';
+  assert.ok((await check(input, manuscript)).warnings.some((w) => /第 2 頁 claim.*60%/.test(w)));
+});
+
+test('calculation and speaker lines accept LF, CRLF, and CR consistently', async () => {
+  for (const eol of ['\n', '\r\n', '\r']) {
+    const notes = ['計算：12 + 8 = 20', '算法：12 - 8 = 4', '先說明合計，再交代資料範圍。'].join(eol);
+    const result = await check(story(rank(20), { claim: '共 20 件', notes }), '甲 12 件，乙 8 件。');
+    assert.deepEqual(result.warnings, []);
+  }
+});
+
+test('wrapping warnings retain original JSON indices after empty cells are omitted', async () => {
+  const text = '甲\r\n乙\r\n丙\r\n丁';
+  const cases = [
+    ['summary', { lead: '先確認', items: [{}, { label: '甲', value: 12, note: text }, { label: '乙', value: 8 }] }, 'visual.items[1].note'],
+    ['compare', { rows: ['條件'], options: [{}, { name: '甲', subtitle: text, values: ['符合'] }, { name: '乙', values: ['符合'] }] }, 'visual.options[1].subtitle'],
+    ['close', { rows: [{}, { task: '確認', due: text }] }, 'visual.rows[1].due'],
+    ['kpi', { main: { label: '耗時', value: 12, benchmarks: [{}, { label: text, value: 8 }] } }, 'visual.main.benchmarks[1].label'],
+    ['steps', { start: '2026-01', end: '2026-12', phases: [{}, { name: '甲', note: text, from: '2026-01', to: '2026-12' }] }, 'visual.phases[1].note'],
+  ];
+  const { warnings } = await check({ pages: cases.map(([type, visual]) => ({ type, claim: '依原稿確認', visual, sources, notes: '說明已知內容。' })) }, '甲 12 件，乙 8 件。2026-01 至 2026-12。');
+  for (const [i, [, , field]] of cases.entries()) assert.ok(warnings.some((w) => w.includes(`第 ${i + 1} 頁`) && w.includes(field)), field);
+});
+
+test('non-cover pages need speaker prose beyond calculation lines, including CRLF notes', async () => {
+  for (const notes of [undefined, '', [], [' ', '\t'], '計算：12 + 8 = 20', ['算法：12 + 8 = 20'], '計算：12 + 8 = 20\r\n算法：12 - 8 = 4']) {
+    const { warnings } = await check(story(rank(12), { notes }), '甲 12 件，乙 8 件。');
+    assert.ok(warnings.some((w) => /第 1 頁 notes.*講稿/.test(w)), JSON.stringify(notes));
+  }
+  for (const notes of ['先說明甲的需求，再交代資料限制。', '計算：12 + 8 = 20\r\n先說明甲的需求。', ['計算：12 + 8 = 20', '目前只能判斷需求量。']]) {
+    assert.ok(!(await check(story(rank(12), { notes }), '甲 12 件，乙 8 件。')).warnings.some((w) => /notes/.test(w)));
+  }
+  assert.ok(!(await check({ pages: [{ type: 'cover', claim: '封面', sources }] }, '原稿')).warnings.some((w) => /notes/.test(w)));
+});
+
+test('wrap warnings name the field, measured lines, and limit, and diagnose CJK orphans', async () => {
+  const make = (type, visual) => ({ type, claim: '依原稿確認', visual, sources, notes: '說明已知內容；其餘留待確認。' });
+  const summary = (body) => make('summary', { lead: '先確認需求', body, items: [{ label: '甲', value: 12 }, { label: '乙', value: 8 }] });
+  const input = { pages: [
+    summary('甲\r\n乙\r\n丙\r\n丁'),
+    summary('甲'.repeat(26)),
+    make('process', { steps: [{ heading: '甲'.repeat(15), body: '乙'.repeat(17) }, { heading: '交接' }, { heading: '完成' }] }),
+    make('close', { rows: [{ task: '確認', owner: '甲'.repeat(13), due: '乙'.repeat(8) }] }),
+    make('close', { rows: [{ task: '確認', due: '甲\r\n乙\r\n丙\r\n丁' }] }),
+  ] };
+  const { warnings } = await check(input, '甲 12 件，乙 8 件。依原稿確認需求。');
+  assert.ok(warnings.some((w) => /第 1 頁.*visual\.body.*4 行.*上限 3 行/.test(w)));
+  assert.ok(warnings.some((w) => /第 5 頁.*visual\.rows\[0\]\.due.*4 行.*上限 3 行/.test(w)));
+  for (const [page, field] of [[2, 'visual.body'], [3, 'visual.steps[0].heading'], [3, 'visual.steps[0].body'], [4, 'visual.rows[0].owner'], [4, 'visual.rows[0].due']]) {
+    assert.ok(warnings.some((w) => w.includes(`第 ${page} 頁`) && w.includes(field) && /2 行.*上限 \d+ 行.*末行.*1 個中文字/.test(w)), `${page} ${field}`);
+  }
+  const clean = await check({ pages: [summary('甲'.repeat(25)), make('close', { rows: [{ task: '確認', due: '乙'.repeat(9) }] })] }, '甲 12 件，乙 8 件。');
+  assert.ok(!clean.warnings.some((w) => w.includes('末行')));
+});
+
+test('other wrapping layouts also locate overflowing fields and report line limits', async () => {
+  const long = Array(30).fill('詳細內容').join('\r\n');
+  const cases = [
+    ['list', { items: [{ heading: '甲', body: '甲\r\n乙' }, { heading: '乙' }, { heading: '丙' }] }, 'visual.items[0].body'],
+    ['columns', { items: [{ heading: '甲', body: long }, { heading: '乙' }] }, 'visual.items[0].body'],
+    ['flow', { nodes: [{ heading: '甲', body: long }, { heading: '乙' }] }, 'visual.nodes[0].body'],
+    ['compare', { rows: ['條件'], options: [{ name: '甲', subtitle: '甲\r\n乙', values: ['符合'] }, { name: '乙', values: ['符合'] }] }, 'visual.options[0].subtitle'],
+    ['kpi', { main: { label: '耗時', value: 12, benchmarks: [{ label: '甲\r\n乙', value: 8 }] } }, 'visual.main.benchmarks[0].label'],
+    ['steps', { start: '2026-01', end: '2026-12', phases: [{ name: '甲', note: '甲\r\n乙', from: '2026-01', to: '2026-12' }] }, 'visual.phases[0].note'],
+    ['evidence', { kind: 'table', columns: [{ name: '項目', type: 'text' }], rows: [[long]] }, 'visual.rows[0][0]'],
+  ];
+  const { warnings } = await check({ pages: cases.map(([type, visual]) => ({ type, claim: '依原稿確認', visual, sources, notes: '說明已知內容。' })) }, '甲 12 件，乙 8 件。2026-01 至 2026-12。');
+  for (const [i, [, , field]] of cases.entries()) assert.ok(warnings.some((w) => w.includes(`第 ${i + 1} 頁`) && w.includes(field) && /估算 \d+ 行，上限 \d+ 行/.test(w)), field);
+});
+
 test('範例通過驗收並建出九頁，封面後為主管摘要', async () => {
   const result = await check(example, script);
   assert.equal(result.pages, 9);

@@ -1,15 +1,17 @@
 # Clayprint：從文字稿驗收簡報
 
-獨立製作者先只讀 SKILL.md 與 [有數字稿](with-numbers.md) 或 [無數字稿](without-numbers.md)，自行完成故事線與 PowerPoint。驗收者再依 [有數字清單](with-numbers.checklist.md)、[無數字清單](without-numbers.checklist.md) 逐頁檢查；這兩份稿沒有預寫的 story 答案。
+獨立製作者先讀 SKILL.md 及它連結的檔案，再依 [有數字稿](with-numbers.md) 或 [無數字稿](without-numbers.md) 自行完成故事線與 PowerPoint。驗收者再依 [有數字清單](with-numbers.checklist.md)、[無數字清單](without-numbers.checklist.md) 逐頁檢查；這兩份稿沒有預寫的 story 答案。
 
 從 repo 根目錄執行：
 
 ```sh
 node evals/check.mjs examples/story.json evals/fixtures/example-script.md
-node evals/check.mjs story.json script.md
+node evals/check.mjs out/story.json script.md
 ```
 
-check 先用 pptx.js 的 `validateStory` 核對結構，再確認每頁 `claim` 與 `sources.source` 非空。數字掃描涵蓋根層 `title`／`date`，以及每頁 `claim`／`kicker`／`note`、`metric.value`／`label`／`unit`、`sources.source`／`unit`／`more`、`visual` 內的所有數值和字串；因此表格、方案值、標籤與來源列都會核對。`sources.period` 多半是日期區間，不做數字比對，交給人工核對。`digits` 是顯示精度，不算資料。最後實際呼叫 `build` 在記憶體產生完整 PPTX，不寫入檔案；保存交付檔仍使用 `node scripts/pptx.js story.json deck.pptx`。
+check 先用 pptx.js 的 `validateStory` 核對結構，再確認每頁 `claim` 與 `sources.source` 非空。數字掃描涵蓋根層 `title`／`date`，以及每頁 `claim`／`kicker`／`lede`／`note`、`metric.value`／`label`／`unit`、`sources.source`／`unit`／`more`、`visual` 內的所有數值和字串；因此表格、方案值、標籤與來源列都會核對。`sources.period` 多半是日期區間，不做數字比對，交給人工核對。`digits` 與數字 `focus` 索引是控制欄位，不算資料。最後實際呼叫 `build` 在記憶體產生完整 PPTX，不寫入檔案；保存交付檔仍使用 `node scripts/pptx.js out/story.json out/deck.pptx`。
+
+警告包含：`claim` 中的數字在當頁實際使用的 `visual`／`metric`／`lede`／`visual.body`／畫面 `note` 找不到（沿用百分比／比例別名、圖表顯示 model 與整份簡報的類別折疊，含漏斗轉換率／流失標籤、數字格增減）；非封面頁 `notes` 空白或只有「計算：／算法：」行；文字超出容量或指定欄位末行孤字。講稿、來源列及未繪製欄位不代替主視覺佐證。換行警告列出原始欄位路徑、估算行數與上限；估算沿用字寬並接受 LF／CRLF／CR，實際字型、英文整詞換行與不均勻斷行仍需預覽。
 
 數字支援正負號、小數、科學記號、千分位、全形，以及百分比寫法（例如 `32%`、`32 %`、`百分之32`、`0.32`）。來源寫 `32%` 時，visual 可保留 `32` 百分數或 `0.32` 比例；選哪種仍須配合圖表實際使用的單位。沒有可核對數字的稿不得放量化圖表；純文字 table 可用。根層 `title`／`date` 的數字須直接在原稿找得到，不採用某一頁的算式；原稿沒日期就省略 `date`。
 
@@ -18,7 +20,7 @@ check 只比對阿拉伯數字。中文數詞（例如「九百」「三成」�
 原稿沒有直接寫出的合計或差額，須在**同頁**的 `notes`（字串或字串陣列）或 `sources.more`（字串陣列）放明確算式，例如：
 
 ```json
-"notes": "合計，計算：1,200 + 800 = 2,000"
+"notes": ["先說明兩項合計；目前資料只涵蓋本期。", "計算：1,200 + 800 = 2,000"]
 ```
 
 ```json

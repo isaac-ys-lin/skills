@@ -13,31 +13,33 @@ description: "Clayprint 把文字稿做成簡報／PowerPoint 或連續閱讀的
 2. 一頁一個清楚的判斷：標題 `claim` 寫結論，主題放頁首小字 `kicker`。
 3. 先寫結論，再選最能支持它的圖或版型。
 4. 放不下就刪內容或拆頁，不縮字級。
+5. `claim` 點名的數字與項目要在當頁可見，強調項目要與主張一致。
 
-每個版型自帶一個主張；稿子撐不起就換版型，例如沒有支撐數字的摘要改用 `process` 或 `columns`，不需要決定的結尾改用 `list`。各版型的主張、欄位與容量見 [版型說明](references/layouts.md)。
+每個版型自帶一個主張；稿子撐不起就換版型，未決事項用無 `tag`／`focus` 的 `list` 或 `columns`。各版型的主張、欄位與容量見 [版型說明](references/layouts.md)。
 
 常見骨架是工具箱，不是必填清單：
 
-- 決策型：封面 → 主管摘要 → 證據 → 診斷或方案 → 決議事項。
+- 決策型：封面 → 主管摘要 → 現況／需求 → 證據 → 診斷或方案 → 決議事項；無數字時，封面後以帶 `focus` 的 `statement` 開場。每張證據頁都要被摘要或決議採用，孤立頁刪去。
 - 說明型：封面 → 重點摘要 → 拆解 → 流程或時程 → 下一步。
 
 ## 資料底線
 
 - 不編造數字；沒有可畫的數字就不放圖表。無日期的流程用 `process`，不捏造月份。
+- 畫面上的順序、期限、負責人與原因取自原稿；推論寫在 `notes`。
 - 0 是觀察值。論證需要、讀者會以為有的數字若未給，在原位標「未提供」，並列入當頁來源列；只是版面有那一格而稿子沒提，就整格省略。缺值輸入與各圖處理方式見 [版型說明](references/layouts.md)和[圖表選單](references/charts.md)。
-- 每頁填 `sources.source`；單位、期間只填已知內容。虛構稿註明「虛構示意資料」。推導值的算法與原始數字放當頁 `notes` 或 `sources.more`，格式見 [驗收說明](evals/README.md)。
+- 每頁填 `sources.source`；單位、期間只填已知內容。虛構稿註明「虛構示意資料」。推導值的算法與原始數字放當頁 `notes`；需要觀眾看見時寫 `sources.more`。`sources.more` 會上投影片，`notes` 不會；格式見 [驗收說明](evals/README.md)。
 
 ## 流程
 
-以下指令從 skill 根目錄執行；需要 Node 22 以上，缺少 `node_modules` 時執行 `npm ci`。將 `story.json`、`script.md`、`deck.pptx` 換成本次檔名。
+以下指令從 skill 根目錄執行；需要 Node 22 以上，缺少 `node_modules` 時執行 `npm ci`。先建立 `out/`，輸出統一放在此處；`script.md` 換成本次原稿。
 
-1. 讀文字稿，確認聽眾、目的、可用數字、來源與資料缺口。
+1. 讀文字稿，確認聽眾、目的、可用數字、來源與資料缺口。使用者說明的背景優先；聽眾或目的不明且會改變取捨時，先問一次。
 2. 選合適的骨架，寫故事線和每頁一句結論。
 3. 依 [版型說明](references/layouts.md)挑支撐結論的版型；需要圖表時依 [圖表選單](references/charts.md)選圖。
-4. 寫 `story.json`，執行 `node evals/check.mjs story.json script.md` 核對結構、數字與建檔。範例：`node evals/check.mjs examples/story.json evals/fixtures/example-script.md`。
-5. 執行 `node scripts/pptx.js story.json deck.pptx` 建檔。
-6. 逐頁預覽：有 PowerPoint 的 Mac 使用 PowerPoint；沒有 PowerPoint 但有 LibreOffice（`soffice`）時使用 LibreOffice。兩者都執行 `node scripts/preview.js deck.pptx out/preview`，並需要 `pdftoppm`、`ffmpeg`。LibreOffice 可能使用替代字型，預覽只能確認版面，正式字型仍要在 PowerPoint 複查。兩者都沒有時，告知如何安裝 PowerPoint 或 LibreOffice；可依 [圖表預覽指令](references/charts.md#共通欄位與輸出)查看 SVG／PNG，但那只能驗圖表，不能驗整頁版面。
-7. 依警告和預覽修正最弱的一頁，再重建、重驗。交付時集中列一次：聽眾要帶走的那句話、缺的資料、時間不夠還沒改好的頁。編輯限制見 [設計差異](docs/design-diff.md)。
+4. 寫 `out/story.json`，每張內容頁在 `notes` 放 1～3 句講稿（要說的話、資料限制），計算另列。執行 `node evals/check.mjs out/story.json script.md` 核對；範例：`node evals/check.mjs examples/story.json evals/fixtures/example-script.md`。
+5. 執行 `node scripts/pptx.js out/story.json out/deck.pptx` 建檔。
+6. 依 [預覽與交付](references/layouts.md#預覽與交付)執行 `node scripts/preview.js out/deck.pptx out/preview`；輸出 `page-N.png`、`sheet.png`（整份概覽）、`deck.pdf`。0 項容量警告只代表未偵測到溢出，仍逐頁找孤字與不均勻換行。
+7. 依警告和預覽修正最弱的一頁，再重建、重驗。能派 subagent 時，可請不同 subagent 對照原稿與需求，分別檢查數字、版面和敘事，再整合修正。交付集中列：核心判斷、缺資料／未完成頁、最弱頁修改前後及原因、哪些圖為原生可編輯／SVG，以及「實際在 PowerPoint 改一個原生圖數值：完成／未驗」。編輯限制見 [設計差異](docs/design-diff.md)。
 
 ## 設計層與驗證
 

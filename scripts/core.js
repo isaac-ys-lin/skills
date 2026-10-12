@@ -196,12 +196,14 @@ KINDS.rank = (spec, m) => {
   let rows = spec.rows.filter((r) => (r.value === null ? (m.missing.push(r.label), false) : true));
   need(rows.length, 'rank 沒有任何數值');
   if (spec.sort !== false) rows = [...rows].sort((a, b) => b.value - a.value);
-  if (spec.focus && !rows.some((r) => r.label === spec.focus)) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
+  const focuses = spec.focus === undefined ? [] : Array.isArray(spec.focus) ? spec.focus : [spec.focus];
+  need(focuses.every((name) => typeof name === 'string'), 'rank 的 focus 需要名稱或名稱陣列');
+  for (const name of focuses) if (!rows.some((r) => r.label === name)) m.warnings.push(`focus「${name}」不在資料裡`);
   const vals = rows.map((r) => r.value);
   m.axis = niceTicks(Math.min(0, ...vals), Math.max(0, ...vals), 4);
   m.rows = rows.map((r) => ({
-    label: r.label, value: r.value, text: fmt(m)(r.value), focus: r.label === spec.focus,
-    color: !spec.focus || r.label === spec.focus ? C.focus : C.gray,
+    label: r.label, value: r.value, text: fmt(m)(r.value), focus: focuses.includes(r.label),
+    color: !focuses.length || focuses.includes(r.label) ? C.focus : C.gray,
   }));
   return m;
 };
@@ -452,27 +454,34 @@ KINDS.dumbbell = (spec, m) => {
 
 KINDS.funnel = (spec, m) => {
   need(Array.isArray(spec.steps) && spec.steps.length >= 2, 'funnel 需要 steps（至少兩步）');
+  need(spec.loss === undefined || typeof spec.loss === 'boolean', 'funnel 的 loss 需要 true 或 false');
   m.steps = spec.steps.map((st, i) => {
     need(typeof st.label === 'string' && numOrNull(st.value) && !(st.value < 0), `funnel 的資料格式不對：${JSON.stringify(st)}`);
     if (st.value === null) m.missing.push(st.label);
     const prev = i > 0 ? spec.steps[i - 1].value : null;
     if (isNum(prev) && isNum(st.value) && st.value > prev) m.warnings.push(`「${st.label}」比上一步多，漏斗應該逐步變少`);
     const conversion = isNum(prev) && prev > 0 && isNum(st.value) ? st.value / prev : null;
+    const loss = spec.loss && isNum(prev) && isNum(st.value) ? prev - st.value : null;
     return {
       label: st.label, value: st.value, text: fmt(m)(st.value), conversion,
       convText: conversion === null ? null : formatValue(conversion * 100, { suffix: '%' }),
+      loss, lossText: loss === null ? null : `${loss < 0 ? '+' : ''}${fmt(m)(-loss)}`,
     };
   });
   const vals = m.steps.map((s) => s.value).filter(isNum);
   need(vals.length, 'funnel 沒有任何數值');
   let focus = -1;
-  if (spec.focus) {
-    focus = m.steps.findIndex((s) => s.label === spec.focus);
-    if (focus < 0) m.warnings.push(`focus「${spec.focus}」不在資料裡`);
+  const focuses = spec.focus === undefined ? null : Array.isArray(spec.focus) ? spec.focus : [spec.focus];
+  need(focuses === null || focuses.every((name) => typeof name === 'string'), 'funnel 的 focus 需要名稱或名稱陣列');
+  if (focuses) {
+    for (const name of focuses) if (!m.steps.some((s) => s.label === name)) m.warnings.push(`focus「${name}」不在資料裡`);
   } else {
     m.steps.forEach((s, i) => { if (s.conversion !== null && (focus < 0 || s.conversion < m.steps[focus].conversion)) focus = i; });
   }
-  m.steps.forEach((s, i) => Object.assign(s, { focus: i === focus, color: i === focus ? C.focus : C.gray }));
+  m.steps.forEach((s, i) => {
+    const highlighted = focuses ? focuses.includes(s.label) : i === focus;
+    Object.assign(s, { focus: highlighted, color: highlighted ? C.focus : C.gray });
+  });
   m.max = Math.max(...vals);
   if (m.max === 0) m.warnings.push('漏斗每一步都是 0');
   return m;
