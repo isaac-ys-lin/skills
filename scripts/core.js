@@ -465,7 +465,7 @@ KINDS.funnel = (spec, m) => {
     return {
       label: st.label, value: st.value, text: fmt(m)(st.value), conversion,
       convText: conversion === null ? null : formatValue(conversion * 100, { suffix: '%' }),
-      loss, lossText: loss === null ? null : `${loss < 0 ? '+' : ''}${fmt(m)(-loss)}`,
+      loss, lossText: loss === null ? null : `${loss < 0 ? tokens.delta.signs.increase : ''}${fmt(m)(-loss)}`,
     };
   });
   const vals = m.steps.map((s) => s.value).filter(isNum);

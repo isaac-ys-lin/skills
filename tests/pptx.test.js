@@ -271,11 +271,11 @@ test('process visual.note sits below steps, reserves room, and validates its tex
   assert.ok(overflow.warnings.some((w) => /visual\.note.*2 行.*上限 1 行/.test(w)));
 });
 
-test('positive delta uses a compact sign in PowerPoint and SVG', async () => {
+test('positive delta uses the design-layer sign in PowerPoint and SVG', async () => {
   const { zip } = await deck([{ type: 'numbers', claim: '變化', visual: { items: [{ label: '甲', prev: 100, value: 310, better: 'higher' }, { label: '乙', value: 1 }] } }]);
-  assert.ok(textOf(await xml(zip, 'ppt/slides/slide1.xml')).includes('+210'));
+  assert.ok(textOf(await xml(zip, 'ppt/slides/slide1.xml')).includes(`${T.delta.signs.increase}210`));
   const { svg } = await import('../scripts/svg.js').then(({ render }) => render({ kind: 'dumbbell', periods: ['前期', '本期'], rows: [{ label: '甲', values: [100, 310] }] }));
-  assert.ok(svg.includes('+210'));
+  assert.ok(svg.includes(`${T.delta.signs.increase}210`));
 });
 
 test('close uses the cover background, white bold tasks, right-aligned muted owners/dates and readable footer', async () => {

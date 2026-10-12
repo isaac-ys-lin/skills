@@ -74,7 +74,7 @@ test('funnel loss labels show drops, preserve zero, and omit unknown transitions
   assert.ok(svg.includes('流失數') && svg.includes('−600') && svg.includes('−540'));
   assert.ok(!render({ kind: 'funnel', steps }).svg.includes('−600'));
   const rising = render({ kind: 'funnel', steps: [{ label: '甲', value: 10 }, { label: '乙', value: 12 }], loss: true });
-  assert.equal(rising.model.steps[1].lossText, '+2');
+  assert.equal(rising.model.steps[1].lossText, `${T.delta.signs.increase}2`);
   assert.throws(() => render({ kind: 'funnel', steps, loss: 'true' }), /loss/);
 });
 
@@ -95,7 +95,7 @@ test('slope: periods use two Ordered steps, deltas follow better', () => {
   const { svg, model } = render({ kind: 'slope', better: 'lower', periods: ['前', '後'], rows: [{ label: 'A', values: [10, 8] }, { label: 'B', values: [5, 6] }] });
   assert.deepEqual(model.colors, [C.ordered[0], C.ordered.at(-1)]);
   assert.ok(svg.includes(`fill="${C.ordered[0]}"`) && svg.includes(`fill="${C.ordered.at(-1)}"`));
-  assert.deepEqual(model.rows.map((r) => r.delta), [{ text: '−2', color: C.better }, { text: '+1', color: C.worse }]);
+  assert.deepEqual(model.rows.map((r) => r.delta), [{ text: '−2', color: C.better }, { text: `${T.delta.signs.increase}1`, color: C.worse }]);
 });
 
 test('share: categories past the 4th fold into 其他, kept by shared order', () => {
