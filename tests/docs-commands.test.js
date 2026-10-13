@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const docs = ['README.md', 'docs/make-it-yours.md', 'design/brief.md'];
+const docs = ['README.md', 'docs/install.md', 'docs/make-it-yours.md', 'design/brief.md'];
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
 test('起點文件中的 node／npm 指令指向現有檔案與 npm 任務', () => {
@@ -23,7 +23,7 @@ test('起點文件中的 node／npm 指令指向現有檔案與 npm 任務', () 
       }
       for (const [, command] of line.matchAll(/\bnpm\s+([\w-]+(?:\s+[\w:-]+)?)/g)) {
         commands++;
-        if (command === 'ci') assert.ok(existsSync(join(root, 'package-lock.json')), `${doc}: npm ci`);
+        if (command.split(/\s+/)[0] === 'ci') assert.ok(existsSync(join(root, 'package-lock.json')), `${doc}: npm ci`);
         else assert.ok(pkg.scripts?.[command === 'test' ? 'test' : command.replace(/^run /, '')], `${doc}: npm ${command}`);
       }
     }

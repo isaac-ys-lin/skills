@@ -30,18 +30,19 @@ flowchart LR
 | 程式 | `scripts/` | 改圖種、版型或輸出方式時 |
 | 檢查成品 | `tests/`、`examples/`、`evals/` | 發現新問題或需要新範例時 |
 
-## 安裝與 30 秒上手
+## 交給 agent 安裝
 
-需要 Node 22 以上。把**整個** Clayprint 資料夾放進專案的 skills 目錄：Claude Code 用專案內的 `.claude/skills/clayprint/`；Codex 放到 Codex 讀取專案 skills 的資料夾。`agents/openai.yaml` 提供 Codex 顯示名稱與預設提示，不是安裝設定。進入 Clayprint 資料夾後執行 `npm ci`。
+把這段交給 Codex 或 Claude Code，由 agent 下載、安裝與驗證：
 
-```sh
-mkdir -p out
-node evals/check.mjs examples/story.json evals/fixtures/example-script.md
-node scripts/pptx.js examples/story.json out/story.pptx
-node evals/check-report.mjs examples/report.html evals/fixtures/explain-script.md
+```text
+請把 https://github.com/kerfnotes/clayprint 安裝到目前專案。
+先讀 repo 的 docs/install.md，依目前使用的 agent 選擇安裝路徑，
+自行完成環境檢查、套件安裝與範例驗證，回報安裝路徑、版本及驗證結果。
 ```
 
-用瀏覽器開 `examples/report.html`。有 Mac 版 PowerPoint，或沒有 PowerPoint 但有 LibreOffice（`soffice`）時，安裝 `pdftoppm` 與 `ffmpeg`，執行 `node scripts/preview.js out/story.pptx out/preview`，逐頁看圖；LibreOffice 可能換用替代字型。兩者都沒有時，可執行 `node scripts/svg.js examples/rank.json out/rank.svg` 檢查圖表，再安裝 PowerPoint 或 LibreOffice 檢查整頁；SVG 不能代替簡報預覽。
+需要 Node **22.7.0 以上**，不需要 API key 或額外建置。Codex 的專案路徑是 `.agents/skills/clayprint/`；Claude Code 是 `.claude/skills/clayprint/`。整個 repo 都是 skill，需保留 `SKILL.md`、`scripts/`、`references/`、`design/` 等檔案。
+
+[agent 安裝指引](docs/install.md)包含下載指令、重複安裝的處理、缺少 Node 時的做法，以及產檔與整頁預覽的驗收條件。安裝完成後可直接說「用 Clayprint 把這份文字稿做成簡報」；Codex 也可用 `$clayprint`，Claude Code 可用 `/clayprint`。
 
 ## 改成你的
 
