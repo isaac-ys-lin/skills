@@ -1,10 +1,10 @@
 # Agent 安裝指引
 
-收到安裝 Clayprint 的請求時，由 agent 執行本流程，直到核心驗證通過或遇到具體阻礙；由 agent 操作終端機、下載與放置檔案。預設只安裝到目前專案，使用者指定其他範圍時才改變安裝位置。
+收到安裝 Clayprint 的請求時，由 agent 操作終端機、下載與放置檔案，依本流程完成核心驗證，遇到具體阻礙時回報。預設只安裝到目前專案，使用者指定其他範圍時才改變安裝位置。
 
 ## 1. 確認環境與位置
 
-確認作業系統、目前專案根目錄、使用的 agent，以及 Git、Node、npm 是否可用。核心需求為 Node **22.7.0 以上**；版本規則以 `package.json` 的 `engines.node` 為準。Node 22.0.0 已實測無法載入 `pptxgenjs` 的 ES module，22.7.0 已通過完整測試。
+確認作業系統、目前專案根目錄與使用的 agent，並檢查 Git、Node、npm 是否可用。核心需求為 Node **22.7.0 以上**；版本規則以 `package.json` 的 `engines.node` 為準。Node 22.0.0 已實測無法載入 `pptxgenjs` 的 ES module，22.7.0 已通過完整測試。
 
 | Agent | 專案內的安裝位置 |
 | --- | --- |
@@ -56,7 +56,7 @@ node evals/check.mjs examples/story.json evals/fixtures/example-script.md
 node evals/check-report.mjs examples/report.html evals/fixtures/explain-script.md
 ```
 
-`npm ci --engine-strict` 會拒絕不符合版本需求的 Node；若收到 `EBADENGINE`，回到環境檢查，選好 runtime 後重跑。其他失敗依實際錯誤處理，保留測試紀錄。套件稽核警告需回報，修復相依版本另行處理，不強制修改套件版本。
+`npm ci --engine-strict` 會拒絕不符合版本需求的 Node；若收到 `EBADENGINE`，回到環境檢查，選好符合需求的 Node 後重跑。其他失敗依實際錯誤處理，保留測試紀錄。套件稽核警告需回報，修復相依版本另行處理，不強制修改套件版本。
 
 macOS／Linux 建立輸出目錄用 `mkdir -p out/install-check`；PowerShell 用 `New-Item -ItemType Directory -Force out/install-check | Out-Null`。接著執行：
 
@@ -66,15 +66,15 @@ node scripts/svg.js examples/rank.json out/install-check/rank.svg
 node scripts/png.js out/install-check/rank.svg out/install-check/rank.png
 ```
 
-核心安裝成功需同時符合：所有命令 exit code 為 0；測試有實際執行且沒有失敗；checker 回報範例為 9 頁簡報、4 節報告與 2 張圖；三個輸出檔存在且非空。檢查 PPTX 的 ZIP 內容確實有 9 個 `ppt/slides/slideN.xml`，SVG 可解析，PNG 可讀。中文字型的測試若因缺字型跳過，另列未驗項目。
+核心安裝成功需同時符合：所有命令結束碼為 0；測試有實際執行且沒有失敗；checker 回報範例為 9 頁簡報、4 節報告與 2 張圖；三個輸出檔存在且非空。檢查 PPTX 的 ZIP 內容確實有 9 個 `ppt/slides/slideN.xml`，SVG 可解析，PNG 可讀。中文字型的測試若因缺字型跳過，另列未驗項目。
 
 ## 4. 整頁預覽
 
-核心產檔不需要 PowerPoint。整頁預覽另外需要 renderer、`pdftoppm`（Poppler）與 `ffmpeg`。先檢查已有工具，只補缺少的項目。
+核心產檔不需要 PowerPoint。整頁預覽另外需要 PowerPoint 或 LibreOffice 轉成 PDF，再用 `pdftoppm`（Poppler）與 `ffmpeg` 產生圖片。先檢查已有工具，只補缺少的項目。
 
-| 系統 | Renderer 與安裝方式 |
+| 系統 | 預覽工具與安裝方式 |
 | --- | --- |
-| macOS | 有 `/Applications/Microsoft PowerPoint.app` 時沿用 PowerPoint；其餘用 LibreOffice。Homebrew 的工具套件為 `poppler`、`ffmpeg`，renderer 為 `brew install --cask libreoffice`。 |
+| macOS | 有 `/Applications/Microsoft PowerPoint.app` 時沿用 PowerPoint；其餘用 LibreOffice。Homebrew 的工具套件為 `poppler`、`ffmpeg`，LibreOffice 用 `brew install --cask libreoffice` 安裝。 |
 | Debian／Ubuntu | 使用 LibreOffice；有安裝權限時用 `apt-get install libreoffice poppler-utils ffmpeg`。 |
 | Windows | 自動預覽使用 LibreOffice，單有 Windows PowerPoint 不足。用現有 winget／Scoop 查找並安裝 LibreOffice、Poppler、FFmpeg；將 `pdftoppm.exe` 與 `ffmpeg.exe` 的所在目錄加入本次命令的 PATH。 |
 
@@ -90,8 +90,8 @@ node scripts/preview.js out/install-check/story.pptx out/install-check/preview
 
 從使用者專案確認 agent 能找到名稱為 `clayprint` 的 skill，並能讀取安裝位置的 `SKILL.md`、`references/layouts.md` 和 `design/tokens.json`。Codex 可明確呼叫 `$clayprint`；Claude Code 可用 `/clayprint`。`agents/openai.yaml` 是顯示與提示資料，不代替安裝路徑。
 
-Codex 會自動偵測 skill 變更。若目前對話尚未顯示，先由 agent 直接讀取上述檔案繼續工作；可以啟動獨立驗證程序時，再確認新程序的 skill 清單。無法確認 host 已載入時，回報「檔案與產檔已驗，host 載入未驗」，不宣稱完整可用，也不為了載入而關閉使用者正在工作的對話。
+Codex 會自動偵測 skill 變更。若目前對話尚未顯示，先由 agent 直接讀取上述檔案繼續工作；可以啟動獨立驗證程序時，再確認新程序的 skill 清單。無法確認 agent 已載入 skill 時，回報「檔案與產檔已驗，agent 載入未驗」，不宣稱完整可用，也不為了載入而關閉使用者正在工作的對話。
 
-交付時列出：安裝絕對路徑、來源 commit（ZIP 則列下載來源）、Node 版本、測試通過／失敗／跳過數、範例輸出路徑、預覽結果、host 載入結果與套件警告。保留必要的驗證產物與紀錄，只清理本次下載的無用暫存。
+交付時列出：安裝絕對路徑、來源 commit（ZIP 則列下載來源）、Node 版本、測試通過／失敗／跳過數、範例輸出路徑、預覽結果、agent 載入結果與套件警告。保留必要的驗證產物與紀錄，只清理本次下載的無用暫存。
 
 安裝位置與載入方式依 [Codex 官方文件](https://developers.openai.com/codex/skills#where-to-save-skills)及 [Claude Code 官方文件](https://code.claude.com/docs/en/skills)。

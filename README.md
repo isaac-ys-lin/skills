@@ -1,6 +1,6 @@
 # Clayprint
 
-Clayprint 把文字稿整理成有判斷與來源的簡報或 HTML 報告，也能替既有檔案套用設計層。三種用法：[文字稿 → 簡報](SKILL.md)、[文字稿 → HTML 報告](references/report.md)、[既有檔案套用設計層](references/formats.md)。
+Clayprint 把文字稿整理成提出判斷、附上來源的簡報或 HTML 報告，也能替既有檔案套用設計層。三種用法：[文字稿 → 簡報](SKILL.md)、[文字稿 → HTML 報告](references/report.md)、[既有檔案套用設計層](references/formats.md)。
 
 介紹影片：[從需要，到自己的工具](https://youtu.be/dIQ2amlA6HY)（YouTube，8 分 39 秒）。講 Clayprint 怎麼從一次次不滿意整理出來，也講怎麼檢查 AI 做出來的成品；下方表格的「片中說法」就是影片裡的用詞。
 
@@ -46,7 +46,7 @@ flowchart LR
 
 ## 改成你的
 
-[改造步驟](docs/make-it-yours.md)：換外觀先改設計層；改內容流程、版型或圖種還會碰到指引、參考與程式。
+[改造步驟](docs/make-it-yours.md)：換外觀先改設計層；改內容流程、版型或圖種時，也要調整指引、參考文件與程式。
 
 ## 已知限制
 

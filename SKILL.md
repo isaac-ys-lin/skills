@@ -15,7 +15,7 @@ description: "Clayprint 把文字稿做成簡報／PowerPoint 或連續閱讀的
 4. 放不下就刪內容或拆頁，不縮字級。
 5. `claim` 點名的數字與項目要在當頁可見，強調項目要與主張一致。
 
-每個版型自帶一個主張；稿子撐不起就換版型，未決事項用無 `tag`／`focus` 的 `list` 或 `columns`。各版型的主張、欄位與容量見 [版型說明](references/layouts.md)。
+每個版型都有對應的主張；原稿無法支持時就換版型，未決事項用沒有 `tag`／`focus` 的 `list` 或 `columns`。各版型的主張、欄位與容量見 [版型說明](references/layouts.md)。
 
 常見骨架是工具箱，不是必填清單：
 
@@ -26,7 +26,7 @@ description: "Clayprint 把文字稿做成簡報／PowerPoint 或連續閱讀的
 
 - 不編造數字；沒有可畫的數字就不放圖表。無日期的流程用 `process`，不捏造月份。
 - 畫面上的順序、期限、負責人與原因取自原稿；推論寫在 `notes`。
-- 0 是觀察值。論證需要、讀者會以為有的數字若未給，在原位標「未提供」，並列入當頁來源列；只是版面有那一格而稿子沒提，就整格省略。缺值輸入與各圖處理方式見 [版型說明](references/layouts.md)和[圖表選單](references/charts.md)。
+- 0 是觀察值。論證需要或讀者會預期看到的數字，若原稿未提供，在原位標「未提供」，並列入當頁來源列；若只是版面有那一格，而原稿沒提，就整格省略。缺值輸入與各圖處理方式見 [版型說明](references/layouts.md)和[圖表選單](references/charts.md)。
 - 每頁填 `sources.source`；單位、期間只填已知內容。虛構稿註明「虛構示意資料」。推導值的算法與原始數字放當頁 `notes`；需要觀眾看見時寫 `sources.more`。`sources.more` 會上投影片，`notes` 不會；格式見 [驗收說明](evals/README.md)。
 
 ## 流程

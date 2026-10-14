@@ -12,6 +12,11 @@
     "jszip": "3.10.1",
     "pptxgenjs": "4.0.1"
   },
+  "overrides": {
+    "pptxgenjs@4.0.1": {
+      "image-size": "2.0.4"
+    }
+  },
   "engines": {
     "node": ">=22.7.0"
   }
