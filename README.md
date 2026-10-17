@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | [Clayprint](skills/kerf-clayprint/) | 把文字稿整理成提出判斷、附上來源的簡報或 HTML 報告 | [從需要，到自己的工具](https://youtu.be/dIQ2amlA6HY) |
 | [Wordprint](skills/kerf-wordprint/) | 在本機把錄音轉成逐字稿，附時間戳與說話者標記 | 製作中 |
+| [Power Map](skills/kerf-power-map/) | 盤點職場上的權力、利益與資訊卡點，比較可行路徑並給出開口說法 | — |
 
 ## 安裝
 
