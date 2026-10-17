@@ -4,8 +4,8 @@
 
 | Skill | 做什麼 | 介紹影片 |
 | --- | --- | --- |
-| [Clayprint](skills/clayprint/) | 把文字稿整理成提出判斷、附上來源的簡報或 HTML 報告 | [從需要，到自己的工具](https://youtu.be/dIQ2amlA6HY) |
-| [Wordprint](skills/wordprint/) | 在本機把錄音轉成逐字稿，附時間戳與說話者標記 | 製作中 |
+| [Clayprint](skills/kerf-clayprint/) | 把文字稿整理成提出判斷、附上來源的簡報或 HTML 報告 | [從需要，到自己的工具](https://youtu.be/dIQ2amlA6HY) |
+| [Wordprint](skills/kerf-wordprint/) | 在本機把錄音轉成逐字稿，附時間戳與說話者標記 | 製作中 |
 
 ## 安裝
 

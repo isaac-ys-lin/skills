@@ -1,5 +1,5 @@
 ---
-name: clayprint
+name: kerf-clayprint
 description: "Clayprint 把文字稿做成簡報／PowerPoint 或連續閱讀的 HTML 報告，也把既有 PowerPoint、Word、Excel、HTML 套用 Clayprint 樣式。適用於內容視覺化；不適用於軟體或架構藍圖、只要大綱、圖片提示詞簡報。"
 ---
 

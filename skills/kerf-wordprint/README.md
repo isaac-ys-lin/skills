@@ -14,12 +14,12 @@ Wordprint 在你自己的電腦上把錄音轉成逐字稿，附時間戳與說�
 把這段交給 Codex 或 Claude Code：
 
 ```text
-請把 https://github.com/kerfnotes/skills 裡的 Wordprint（skills/wordprint）安裝到目前專案。
-先讀 skills/wordprint/docs/install.md，依目前使用的 agent 選擇安裝路徑，
+請把 https://github.com/kerfnotes/skills 裡的 Wordprint（skills/kerf-wordprint）安裝到目前專案。
+先讀 skills/kerf-wordprint/docs/install.md，依目前使用的 agent 選擇安裝路徑，
 自行完成環境檢查、模型準備與短音檔驗證，回報安裝路徑、版本及驗證結果。
 ```
 
-Codex 的專案路徑是 `.agents/skills/wordprint/`；Claude Code 是 `.claude/skills/wordprint/`。安裝 skill 不會下載模型；[agent 安裝指引](docs/install.md)說明怎麼準備本機工具、模型與驗證。安裝完成後可直接說「把這個音檔轉成逐字稿」；Codex 也可用 `$wordprint`，Claude Code 可用 `/wordprint`。
+Codex 的專案路徑是 `.agents/skills/kerf-wordprint/`；Claude Code 是 `.claude/skills/kerf-wordprint/`。安裝 skill 不會下載模型；[agent 安裝指引](docs/install.md)說明怎麼準備本機工具、模型與驗證。安裝完成後可直接說「把這個音檔轉成逐字稿」；Codex 也可用 `$kerf-wordprint`，Claude Code 可用 `/kerf-wordprint`。
 
 ## 已知限制
 

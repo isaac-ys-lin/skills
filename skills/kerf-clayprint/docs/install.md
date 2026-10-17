@@ -8,8 +8,8 @@
 
 | Agent | 專案內的安裝位置 |
 | --- | --- |
-| Codex | `.agents/skills/clayprint/` |
-| Claude Code | `.claude/skills/clayprint/` |
+| Codex | `.agents/skills/kerf-clayprint/` |
+| Claude Code | `.claude/skills/kerf-clayprint/` |
 
 先檢查目的地。若已是完整的 Clayprint，沿用它並重新驗證；更新版本是另一項工作。若目的地包含其他內容、失效連結或無法確認來源，保留內容並回報路徑衝突。不要直接覆寫既有 skill 或執行清理指令。
 
@@ -19,18 +19,18 @@
 
 ## 2. 取得 skill 檔案
 
-Clayprint 位於 [kerfnotes/skills](https://github.com/kerfnotes/skills) 的 `skills/clayprint/`。依上一節的 agent 選好路徑，再執行對應終端機的指令：先把整個 repo 下載到暫存目錄，再只複製 `skills/clayprint/` 到目的地。以下只適用於目的地尚未存在時；所有路徑都由 agent 換成本次專案的絕對路徑，Claude Code 將 `.agents` 換成 `.claude`。
+Clayprint 位於 [kerfnotes/skills](https://github.com/kerfnotes/skills) 的 `skills/kerf-clayprint/`。依上一節的 agent 選好路徑，再執行對應終端機的指令：先把整個 repo 下載到暫存目錄，再只複製 `skills/kerf-clayprint/` 到目的地。以下只適用於目的地尚未存在時；所有路徑都由 agent 換成本次專案的絕對路徑，Claude Code 將 `.agents` 換成 `.claude`。
 
 macOS／Linux：
 
 ```sh
 CLAYPRINT_PROJECT="/absolute/path/to/project"
-CLAYPRINT_SKILL="$CLAYPRINT_PROJECT/.agents/skills/clayprint"
+CLAYPRINT_SKILL="$CLAYPRINT_PROJECT/.agents/skills/kerf-clayprint"
 KERFNOTES_TMP="$(mktemp -d)"
 git clone --depth 1 https://github.com/kerfnotes/skills.git "$KERFNOTES_TMP/skills"
 git -C "$KERFNOTES_TMP/skills" rev-parse HEAD
 mkdir -p "$(dirname "$CLAYPRINT_SKILL")"
-cp -R "$KERFNOTES_TMP/skills/skills/clayprint" "$CLAYPRINT_SKILL"
+cp -R "$KERFNOTES_TMP/skills/skills/kerf-clayprint" "$CLAYPRINT_SKILL"
 cd "$CLAYPRINT_SKILL"
 ```
 
@@ -38,16 +38,16 @@ Windows PowerShell：
 
 ```powershell
 $ClayprintProject = 'C:\absolute\path\to\project'
-$ClayprintSkill = Join-Path $ClayprintProject '.agents\skills\clayprint'
+$ClayprintSkill = Join-Path $ClayprintProject '.agents\skills\kerf-clayprint'
 $KerfnotesTmp = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid())
 git clone --depth 1 https://github.com/kerfnotes/skills.git (Join-Path $KerfnotesTmp 'skills')
 git -C (Join-Path $KerfnotesTmp 'skills') rev-parse HEAD
 New-Item -ItemType Directory -Force (Split-Path $ClayprintSkill) | Out-Null
-Copy-Item -Recurse (Join-Path $KerfnotesTmp 'skills\skills\clayprint') $ClayprintSkill
+Copy-Item -Recurse (Join-Path $KerfnotesTmp 'skills\skills\kerf-clayprint') $ClayprintSkill
 Set-Location $ClayprintSkill
 ```
 
-`rev-parse HEAD` 印出的是來源 commit，交付時要列出。若缺 Git，可由 agent 下載 [main 分支 ZIP](https://github.com/kerfnotes/skills/archive/refs/heads/main.zip)，只複製其中的 `skills-main/skills/clayprint/` 到目的地；確認 `SKILL.md` 位於目的地根目錄，而不是多包一層。已取得完整本機副本時也可直接放入目的地。複製完成後，暫存目錄可以刪除。每個命令失敗就先處理原因，成功後才進下一步。
+`rev-parse HEAD` 印出的是來源 commit，交付時要列出。若缺 Git，可由 agent 下載 [main 分支 ZIP](https://github.com/kerfnotes/skills/archive/refs/heads/main.zip)，只複製其中的 `skills-main/skills/kerf-clayprint/` 到目的地；確認 `SKILL.md` 位於目的地根目錄，而不是多包一層。已取得完整本機副本時也可直接放入目的地。複製完成後，暫存目錄可以刪除。每個命令失敗就先處理原因，成功後才進下一步。
 
 ## 3. 安裝與核心驗證
 
@@ -94,7 +94,7 @@ node scripts/preview.js out/install-check/story.pptx out/install-check/preview
 
 ## 5. 確認 agent 可使用，交付結果
 
-從使用者專案確認 agent 能找到名稱為 `clayprint` 的 skill，並能讀取安裝位置的 `SKILL.md`、`references/layouts.md` 和 `design/tokens.json`。Codex 可明確呼叫 `$clayprint`；Claude Code 可用 `/clayprint`。`agents/openai.yaml` 是顯示與提示資料，不代替安裝路徑。
+從使用者專案確認 agent 能找到名稱為 `kerf-clayprint` 的 skill，並能讀取安裝位置的 `SKILL.md`、`references/layouts.md` 和 `design/tokens.json`。Codex 可明確呼叫 `$kerf-clayprint`；Claude Code 可用 `/kerf-clayprint`。`agents/openai.yaml` 是顯示與提示資料，不代替安裝路徑。
 
 Codex 會自動偵測 skill 變更。若目前對話尚未顯示，先由 agent 直接讀取上述檔案繼續工作；可以啟動獨立驗證程序時，再確認新程序的 skill 清單。無法確認 agent 已載入 skill 時，回報「檔案與產檔已驗，agent 載入未驗」，不宣稱完整可用，也不為了載入而關閉使用者正在工作的對話。
 

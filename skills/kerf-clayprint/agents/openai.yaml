@@ -1,4 +1,4 @@
 interface:
   display_name: "Clayprint"
   short_description: "將文字稿整理成故事線，搭配圖表與版型，製作可編輯的 PowerPoint 簡報"
-  default_prompt: "請用 $clayprint 把這份文字稿做成 PowerPoint，先寫每頁一句判斷，再選版型與主視覺並驗證輸出。"
+  default_prompt: "請用 $kerf-clayprint 把這份文字稿做成 PowerPoint，先寫每頁一句判斷，再選版型與主視覺並驗證輸出。"

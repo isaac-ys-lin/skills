@@ -6,33 +6,33 @@
 
 | Agent | 專案內的安裝位置 |
 | --- | --- |
-| Codex | `.agents/skills/wordprint/` |
-| Claude Code | `.claude/skills/wordprint/` |
+| Codex | `.agents/skills/kerf-wordprint/` |
+| Claude Code | `.claude/skills/kerf-wordprint/` |
 
 先檢查目的地。若已是完整的 Wordprint，沿用它並重新驗證；若包含其他內容或無法確認來源，保留內容並回報路徑衝突，不覆寫既有 skill。
 
-目的地不存在時，把 repo 下載到暫存目錄，只複製 `skills/wordprint/`。路徑由 agent 換成本次專案的絕對路徑，Claude Code 將 `.agents` 換成 `.claude`。
+目的地不存在時，把 repo 下載到暫存目錄，只複製 `skills/kerf-wordprint/`。路徑由 agent 換成本次專案的絕對路徑，Claude Code 將 `.agents` 換成 `.claude`。
 
 macOS／Linux：
 
 ```sh
-WORDPRINT_SKILL="/absolute/path/to/project/.agents/skills/wordprint"
+WORDPRINT_SKILL="/absolute/path/to/project/.agents/skills/kerf-wordprint"
 KERFNOTES_TMP="$(mktemp -d)"
 git clone --depth 1 https://github.com/kerfnotes/skills.git "$KERFNOTES_TMP/skills"
 git -C "$KERFNOTES_TMP/skills" rev-parse HEAD
 mkdir -p "$(dirname "$WORDPRINT_SKILL")"
-cp -R "$KERFNOTES_TMP/skills/skills/wordprint" "$WORDPRINT_SKILL"
+cp -R "$KERFNOTES_TMP/skills/skills/kerf-wordprint" "$WORDPRINT_SKILL"
 ```
 
 Windows PowerShell：
 
 ```powershell
-$WordprintSkill = 'C:\absolute\path\to\project\.agents\skills\wordprint'
+$WordprintSkill = 'C:\absolute\path\to\project\.agents\skills\kerf-wordprint'
 $KerfnotesTmp = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid())
 git clone --depth 1 https://github.com/kerfnotes/skills.git (Join-Path $KerfnotesTmp 'skills')
 git -C (Join-Path $KerfnotesTmp 'skills') rev-parse HEAD
 New-Item -ItemType Directory -Force (Split-Path $WordprintSkill) | Out-Null
-Copy-Item -Recurse (Join-Path $KerfnotesTmp 'skills\skills\wordprint') $WordprintSkill
+Copy-Item -Recurse (Join-Path $KerfnotesTmp 'skills\skills\kerf-wordprint') $WordprintSkill
 ```
 
 `rev-parse HEAD` 印出的是來源 commit，交付時要列出。複製完成後暫存目錄可以刪除。

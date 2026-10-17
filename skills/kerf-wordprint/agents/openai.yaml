@@ -1,6 +1,6 @@
 interface:
   display_name: "Wordprint"
   short_description: "Local Qwen transcription with timestamps and speaker labels"
-  default_prompt: "Use $wordprint to transcribe these local recordings with timestamps and speaker labels."
+  default_prompt: "Use $kerf-wordprint to transcribe these local recordings with timestamps and speaker labels."
 policy:
   allow_implicit_invocation: true

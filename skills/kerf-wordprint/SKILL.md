@@ -1,5 +1,5 @@
 ---
-name: wordprint
+name: kerf-wordprint
 description: "Wordprint: transcribe local audio with Qwen, timestamps, and speaker labels; merge recordings when requested or relabel an existing transcript. Use for 音檔轉錄、逐字稿、說話者標記. Not for summarizing existing text, voice cloning, or downloading online videos."
 compatibility: "Python 3.10+, ffmpeg, ffprobe, OpenCC, and locally available Qwen ASR/ForcedAligner plus a diarization backend. Apple Silicon uses MLX/CoreML; Windows uses PyTorch. Full pipeline verified on Apple Silicon macOS; the Windows route is documented but untested."
 ---
