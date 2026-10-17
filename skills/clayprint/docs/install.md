@@ -17,17 +17,20 @@
 
 沒有可用套件管理器時，從 [Node.js 官方下載](https://nodejs.org/en/download)取得符合 OS／CPU 的 Node 24 binary，核對同一版官方 `SHASUMS256.txt`，解壓到使用者可寫入的工具目錄，將該版 `bin` 加入本次命令的 PATH（Windows 使用含 `node.exe` 的目錄）。由 agent 完成這些操作；工具、網路或權限受阻時回報實際錯誤及未完成步驟。
 
-## 2. 取得完整 repo
+## 2. 取得 skill 檔案
 
-依上一節的 agent 選好路徑，再執行對應終端機的指令。以下只適用於目的地尚未存在時；所有路徑都由 agent 換成本次專案的絕對路徑，Claude Code 將 `.agents` 換成 `.claude`。
+Clayprint 位於 [kerfnotes/skills](https://github.com/kerfnotes/skills) 的 `skills/clayprint/`。依上一節的 agent 選好路徑，再執行對應終端機的指令：先把整個 repo 下載到暫存目錄，再只複製 `skills/clayprint/` 到目的地。以下只適用於目的地尚未存在時；所有路徑都由 agent 換成本次專案的絕對路徑，Claude Code 將 `.agents` 換成 `.claude`。
 
 macOS／Linux：
 
 ```sh
 CLAYPRINT_PROJECT="/absolute/path/to/project"
 CLAYPRINT_SKILL="$CLAYPRINT_PROJECT/.agents/skills/clayprint"
+KERFNOTES_TMP="$(mktemp -d)"
+git clone --depth 1 https://github.com/kerfnotes/skills.git "$KERFNOTES_TMP/skills"
+git -C "$KERFNOTES_TMP/skills" rev-parse HEAD
 mkdir -p "$(dirname "$CLAYPRINT_SKILL")"
-git clone https://github.com/kerfnotes/clayprint.git "$CLAYPRINT_SKILL"
+cp -R "$KERFNOTES_TMP/skills/skills/clayprint" "$CLAYPRINT_SKILL"
 cd "$CLAYPRINT_SKILL"
 ```
 
@@ -36,12 +39,15 @@ Windows PowerShell：
 ```powershell
 $ClayprintProject = 'C:\absolute\path\to\project'
 $ClayprintSkill = Join-Path $ClayprintProject '.agents\skills\clayprint'
+$KerfnotesTmp = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid())
+git clone --depth 1 https://github.com/kerfnotes/skills.git (Join-Path $KerfnotesTmp 'skills')
+git -C (Join-Path $KerfnotesTmp 'skills') rev-parse HEAD
 New-Item -ItemType Directory -Force (Split-Path $ClayprintSkill) | Out-Null
-git clone https://github.com/kerfnotes/clayprint.git $ClayprintSkill
+Copy-Item -Recurse (Join-Path $KerfnotesTmp 'skills\skills\clayprint') $ClayprintSkill
 Set-Location $ClayprintSkill
 ```
 
-若缺 Git，可由 agent 下載 [main 分支 ZIP](https://github.com/kerfnotes/clayprint/archive/refs/heads/main.zip)並解壓到目的地；確認 `SKILL.md` 位於 `clayprint/` 根目錄，而不是多包一層 `clayprint-main/`。已取得完整本機副本時也可直接放入目的地。每個命令失敗就先處理原因，成功後才進下一步。
+`rev-parse HEAD` 印出的是來源 commit，交付時要列出。若缺 Git，可由 agent 下載 [main 分支 ZIP](https://github.com/kerfnotes/skills/archive/refs/heads/main.zip)，只複製其中的 `skills-main/skills/clayprint/` 到目的地；確認 `SKILL.md` 位於目的地根目錄，而不是多包一層。已取得完整本機副本時也可直接放入目的地。複製完成後，暫存目錄可以刪除。每個命令失敗就先處理原因，成功後才進下一步。
 
 ## 3. 安裝與核心驗證
 

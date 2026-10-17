@@ -1,0 +1,151 @@
+"""Small offline checks; model accuracy and platform inference require audio smoke tests."""
+import hashlib
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+SCRIPT = Path(__file__).parents[1] / 'scripts' / 'transcript.py'
+spec = importlib.util.spec_from_file_location('wordprint_transcript', SCRIPT)
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+
+
+class TranscriptTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        (self.root / '音 訊.wav').write_bytes(b'fixture audio identity')
+        self.path = self.root / 'run.json'
+        self.run = {
+            'schema_version': 1, 'model': {'id': 'Qwen/Qwen3-ASR-0.6B', 'size': '0.6B'},
+            'diarization_complete': True,
+            'sources': [{'path': '音 訊.wav', 'sha256': hashlib.sha256(b'fixture audio identity').hexdigest(),
+                         'duration': 3, 'offset': 0}],
+            'chunks': [{'start': 0, 'end': 3, 'text': '你好，嗯？好。', 'complete': True, 'truncated': False,
+                        'words': [{'text': '你好', 'start': 0, 'end': 1},
+                                  {'text': '嗯', 'start': 1, 'end': 1.2},
+                                  {'text': '好', 'start': 1.2, 'end': 2}]}],
+            'turns': [{'start': 0, 'end': 1, 'speaker': 'S1'},
+                      {'start': 1, 'end': 1.2, 'speaker': 'S2'},
+                      {'start': 1.2, 'end': 2, 'speaker': 'S1'}],
+            'speakers': {'S1': {}, 'S2': {'name': '陳先生', 'status': 'possible', 'evidence': '使用者：中間插話可能是陳先生'}},
+            'participant_candidates': ['王小姐'],
+        }
+
+    def validate(self):
+        self.path.write_text(json.dumps(self.run, ensure_ascii=False), encoding='utf-8')
+        return m.validate(self.path)
+
+    def test_render_preserves_original_and_short_interjection(self):
+        run, report = self.validate()
+        rows = list(m.rows(run))
+        self.assertEqual(''.join(row['text'] for row in rows), self.run['chunks'][0]['text'])
+        self.assertEqual([row['speakers'] for row in rows], [('S1',), ('S2',), ('S1',)])
+        result = m.render(run, report, self.root / 'output', original_script=True)
+        self.assertEqual(result['words'], 3)
+        output = self.root / 'output'
+        self.assertEqual((output / 'raw.txt').read_text(encoding='utf-8'), '你好，嗯？好。\n')
+        self.assertIn('可能是 陳先生', (output / 'transcript.md').read_text(encoding='utf-8'))
+        self.assertNotIn('王小姐', (output / 'transcript.md').read_text(encoding='utf-8'))
+        self.assertEqual(m.validate(output / 'run.json')[1]['sources'], 1)
+        with self.assertRaisesRegex(m.Invalid, 'already exists'):
+            m.render(run, report, output, original_script=True)
+
+    def test_no_alignment_truncation_or_changed_source_cannot_succeed(self):
+        for mutation, message in [
+            (lambda r: r['chunks'][0].pop('words'), 'alignment'),
+            (lambda r: r['chunks'][0].update(truncated=True), 'truncated'),
+            (lambda r: r['chunks'][0].update(end=2), 'recording end'),
+            (lambda r: r['chunks'][0].update(start=0.2), 'continuously'),
+            (lambda r: r['sources'][0].update(offset=1), 'continuous'),
+            (lambda r: r.update(diarization_complete=False), 'diarization_complete'),
+            (lambda r: r['turns'][0].update(speaker='S3'), 'unknown speaker'),
+            (lambda r: r['speakers']['S2'].update(name={'bad': 'type'}), 'string required'),
+            (lambda r: r['chunks'][0]['words'][0].update(text='錯誤'), 'differs'),
+            (lambda r: r['chunks'][0]['words'][0].update(end=float('nan')), 'finite'),
+            (lambda r: r['model'].update(size='1.7B'), 'disagree'),
+            (lambda r: r['chunks'][0]['words'][0].update(end=3.03), 'invalid time'),
+            (lambda r: r['chunks'][0]['words'][1].update(start=0.5, end=0.6), 'out of order'),
+            (lambda r: r['chunks'][0]['words'][1].update(text='！'), 'standalone punctuation'),
+            (lambda r: r['chunks'].append(dict(r['chunks'][0])), 'continuously'),
+            (lambda r: r['sources'][0].update(sample_count=32000, sample_rate=16000), 'PCM sample count'),
+            (lambda r: r['sources'][0].update(sample_count=48000), 'positive integers'),
+            (lambda r: r['chunks'][0].update(text='ß', words=[{'text':'s','start':0,'end':1},
+                                                            {'text':'s','start':1,'end':2}]), 'source character'),
+        ]:
+            with self.subTest(message=message):
+                original = json.loads(json.dumps(self.run))
+                mutation(self.run)
+                with self.assertRaisesRegex(m.Invalid, message):
+                    self.validate()
+                self.run = original
+        self.path.write_text('{"schema_version":1,"schema_version":1}', encoding='utf-8')
+        with self.assertRaisesRegex(m.Invalid, 'duplicate JSON key'):
+            m.validate(self.path)
+        (self.root / '音 訊.wav').write_bytes(b'replaced')
+        with self.assertRaisesRegex(m.Invalid, 'SHA256 mismatch'):
+            self.validate()
+
+    def test_overlap_boundary_and_missing_diarization_are_distinct(self):
+        word = {'start': 0, 'end': 1}
+        overlap = [{'start': 0, 'end': 1, 'speaker': 'S1'}, {'start': 0.4, 'end': 0.6, 'speaker': 'S2'}]
+        boundary = [{'start': 0, 'end': 0.5, 'speaker': 'S1'}, {'start': 0.5, 'end': 1, 'speaker': 'S2'}]
+        self.assertEqual(m.classify(word, overlap), ('overlap', ('S1', 'S2')))
+        self.assertEqual(m.classify(word, boundary), ('uncertain', ('S1', 'S2')))
+        self.assertEqual(m.classify(word, []), ('unknown', ()))
+        self.assertEqual(m.classify(word, [{'start': 0, 'end': 0.4, 'speaker': 'S1'}]), ('uncertain', ('S1',)))
+        self.assertEqual(m.classify({'start': 0.5, 'end': 0.5}, overlap), ('uncertain', ('S1', 'S2')))
+        self.assertEqual(m.classify({'start': 0.2, 'end': 0.2}, overlap), ('uncertain', ('S1',)))
+        self.run['turns'] = []
+        run, _ = self.validate()
+        self.assertEqual(list(m.rows(run))[0]['kind'], 'unknown')
+
+    def test_silence_multisource_casefold_and_punctuation(self):
+        self.run['sources'][0].update(sample_count=48000, sample_rate=16000)
+        self.run['sources'] *= 2
+        self.run['sources'] = [dict(s) for s in self.run['sources']]
+        self.run['sources'][1]['offset'] = 3
+        self.run['chunks'].append({'start': 3, 'end': 6, 'text': '', 'words': [], 'complete': True, 'truncated': False})
+        run, report = self.validate()
+        self.assertEqual(report['duration'], 6)
+        chunk = {'text': '「Straße」，好！', 'words': [{'text': 'STRASSE'}, {'text': '好'}]}
+        self.assertEqual([text for _, text in m.pieces(chunk)], ['「Straße」，', '好！'])
+        chunk = {'text': '你好，「嗯」好。', 'words': [{'text': '你好'}, {'text': '嗯'}, {'text': '好'}]}
+        self.assertEqual([text for _, text in m.pieces(chunk)], ['你好，', '「嗯」', '好。'])
+        self.assertEqual(m.normalized(' A，B！'), 'ab')
+        self.assertNotEqual(m.normalized('a+b'), m.normalized('ab'))
+        self.assertEqual(m.stamp(59.9999), '00:01:00.000')
+
+    def test_cli_failure_never_creates_success_artifacts(self):
+        self.run['chunks'][0].pop('words')
+        self.path.write_text(json.dumps(self.run), encoding='utf-8')
+        output = self.root / 'must-not-exist'
+        result = subprocess.run([sys.executable, str(SCRIPT), 'render', str(self.path), '--output',
+                                 str(output), '--original-script'], capture_output=True, text=True, encoding='utf-8',
+                                env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
+        self.assertEqual(result.returncode, 1)
+        self.assertFalse(json.loads(result.stderr)['ok'])
+        self.assertFalse(output.exists())
+        self.assertFalse(list(self.root.glob('.transcript-*')))
+
+    def test_opencc_absence_leaves_no_output_and_name_edit_reuses_text(self):
+        run, report = self.validate()
+        with self.assertRaisesRegex(m.Invalid, 'OpenCC not found'):
+            m.render(run, report, self.root / 'missing', opencc='certainly-not-installed-opencc-command')
+        self.assertFalse((self.root / 'missing').exists())
+        run['speakers']['S2'] = {'name': '李先生', 'status': 'confirmed', 'evidence': '使用者確認'}
+        m.render(run, report, self.root / 'renamed', original_script=True)
+        rendered = (self.root / 'renamed' / 'transcript.txt').read_text(encoding='utf-8')
+        self.assertIn('S2｜李先生', rendered)
+        self.assertNotIn('可能是', rendered)
+        self.assertEqual((self.root / 'renamed' / 'raw.txt').read_text(encoding='utf-8'), '你好，嗯？好。\n')
+
+
+if __name__ == '__main__':
+    unittest.main()

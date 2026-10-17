@@ -35,12 +35,12 @@ flowchart LR
 把這段交給 Codex 或 Claude Code，由 agent 下載、安裝與驗證：
 
 ```text
-請把 https://github.com/kerfnotes/clayprint 安裝到目前專案。
-先讀 repo 的 docs/install.md，依目前使用的 agent 選擇安裝路徑，
+請把 https://github.com/kerfnotes/skills 裡的 Clayprint（skills/clayprint）安裝到目前專案。
+先讀 skills/clayprint/docs/install.md，依目前使用的 agent 選擇安裝路徑，
 自行完成環境檢查、套件安裝與範例驗證，回報安裝路徑、版本及驗證結果。
 ```
 
-需要 Node **22.7.0 以上**，不需要 API key 或額外建置。Codex 的專案路徑是 `.agents/skills/clayprint/`；Claude Code 是 `.claude/skills/clayprint/`。整個 repo 都是 skill，需保留 `SKILL.md`、`scripts/`、`references/`、`design/` 等檔案。
+需要 Node **22.7.0 以上**，不需要 API key 或額外建置。Codex 的專案路徑是 `.agents/skills/clayprint/`；Claude Code 是 `.claude/skills/clayprint/`。整個 `skills/clayprint/` 資料夾就是 skill，需保留 `SKILL.md`、`scripts/`、`references/`、`design/` 等檔案。
 
 [agent 安裝指引](docs/install.md)包含下載指令、重複安裝的處理、缺少 Node 時的做法，以及產檔與整頁預覽的驗收條件。安裝完成後可直接說「用 Clayprint 把這份文字稿做成簡報」；Codex 也可用 `$clayprint`，Claude Code 可用 `/clayprint`。
 
