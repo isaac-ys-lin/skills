@@ -2,7 +2,7 @@
 
 獨立製作者先讀 SKILL.md 及它連結的檔案，再依 [有數字稿](with-numbers.md) 或 [無數字稿](without-numbers.md) 自行完成故事線與 PowerPoint。驗收者再依 [有數字清單](with-numbers.checklist.md)、[無數字清單](without-numbers.checklist.md) 逐頁檢查；這兩份稿沒有預寫的 story 答案。
 
-從 repo 根目錄執行：
+從 skill 根目錄執行：
 
 ```sh
 node evals/check.mjs examples/story.json evals/fixtures/example-script.md

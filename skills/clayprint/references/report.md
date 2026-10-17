@@ -17,7 +17,7 @@
 
 ## 列印 PDF
 
-以下從 repo 根目錄執行，會把範例報告印到 `out/report.pdf`。正式交付時換成自己的 HTML 檔名。使用 Chrome 的列印引擎即可，不需要另寫瀏覽器自動化程式。
+以下從 skill 根目錄執行，會把範例報告印到 `out/report.pdf`。正式交付時換成自己的 HTML 檔名。使用 Chrome 的列印引擎即可，不需要另寫瀏覽器自動化程式。
 
 macOS：
 
