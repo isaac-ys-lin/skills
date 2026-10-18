@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  權力地圖預設版型（見 board.md 第 1 節）。複製整份，只改 <body> 內的文字與列數；CSS 通常不必動，驗收發現溢出時再調。
+  - 沿用環境主題變數，不覆寫 :root 配色、不設整頁背景。
+  - 每格一句短語（約 20 字內）；長說明留在正文，不塞進圖。
+  - 箭頭三種：.edge 已發生、.edge.plan 建議你做、.edge.unk 不知道有沒有這條路（標籤寫成問句）。
+  - 使用者自己說的不貼標籤；只標 已核對／推測／未知，一律寫字。圖例只列圖中真的用到的線型與標籤。
+  - 決策圈由外到內：名義上能參與的人（形式參與）→ 誰的話有份量（影響者）→ 少了誰推不動（必要支持）→ 誰能批准或擋下（批准／否決）；只畫第一步要處理的那一項決定，另一項決定在框外寫一行。只畫有依據的圈，沒依據的併成「待查」一行；批准或擋下那圈一定畫。推測標在放圈依據後面，不標在姓名或職稱後面。
+  - 交付版不放任何 <script>；量溢出的程式只在預覽時用。
+-->
+<style>
+.pm{font-family:var(--font-sans,system-ui,sans-serif);color:var(--foreground,#e5e5e5);line-height:1.45;display:flex;flex-direction:column;gap:14px;padding:4px 2px 8px}
+.pm h1{font-size:17px;line-height:1.4;margin:0;font-weight:700}
+.pm .turn{border:2px solid var(--accent,#3b82f6);border-radius:var(--radius,8px);padding:10px 14px;font-size:14px}
+.pm .turn b{color:var(--accent,#3b82f6)}
+.pm .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted-foreground,#a3a3a3)}
+.pm .panel{border:1px solid var(--border,#3f3f46);border-radius:var(--radius,8px);padding:12px 14px}
+.pm .panel h2{font-size:14px;margin:0;font-weight:700}
+.pm .lens{font-size:12px;color:var(--muted-foreground,#a3a3a3);margin:2px 0 10px}
+.pm .hop{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;margin:0 0 8px}
+.pm .node{border:1.5px solid var(--foreground,#e5e5e5);border-radius:6px;padding:3px 9px;font-size:13px;font-weight:700;text-align:center;max-width:7.5em;overflow-wrap:anywhere}
+.pm .node.me{border-color:var(--accent,#3b82f6);color:var(--accent,#3b82f6)}
+.pm .edge{font-size:12px;color:var(--muted-foreground,#a3a3a3);border-bottom:2px solid var(--foreground,#e5e5e5);padding:0 6px 2px;text-align:center;position:relative;min-width:60px}
+.pm .edge::after{content:"";position:absolute;right:-2px;bottom:-6px;border:5px solid transparent;border-left:8px solid var(--foreground,#e5e5e5)}
+.pm .edge.plan{border-bottom-style:dashed;border-bottom-color:var(--accent,#3b82f6);color:var(--accent,#3b82f6)}
+.pm .edge.plan::after{border-left-color:var(--accent,#3b82f6)}
+.pm .edge.unk{border-bottom-style:dotted;border-bottom-color:var(--destructive,#ef4444);color:var(--destructive,#ef4444)}
+.pm .edge.unk::after{border-left-color:var(--destructive,#ef4444)}
+.pm .ring{border:1px solid var(--border,#52525b);border-radius:12px;padding:8px 10px 10px}
+.pm .ring .rk{font-size:12px;color:var(--muted-foreground,#a3a3a3);margin-bottom:4px}
+.pm .ring .who{font-size:13px;margin-bottom:6px}
+.pm .r1{border-width:2px;border-color:var(--foreground,#e5e5e5)}
+.pm .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pm ul{margin:0;padding-left:18px;font-size:13px}.pm li{margin:0 0 4px}
+.pm .tag{display:inline-block;font-size:11px;line-height:1.3;padding:0 4px;border:1.5px solid;border-radius:4px;margin-left:4px;white-space:nowrap;vertical-align:1px;font-weight:600;color:var(--foreground,#e5e5e5)}
+.pm .t-doc{border-color:var(--success,#22c55e)}.pm .t-said{border-color:var(--info,#38bdf8)}.pm .t-guess{border-color:var(--warning,#f59e0b);border-style:dashed}.pm .t-unk{border-color:var(--destructive,#ef4444);border-style:dotted}
+.pm .cols h3{font-size:12px;color:var(--muted-foreground,#a3a3a3);margin:0 0 4px;font-weight:600}
+@media (max-width:560px){.pm .cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="pm">
+
+<h1>【狀態句的前兩段：原話能回讀的狀態＋你沒提／還不知道的那一項】</h1>
+<div class="turn"><b>轉折點：</b>【狀態句的第一步：對誰提出什麼請求，與正文推薦一致】</div>
+<div class="legend">
+  <span>實線箭頭＝已發生</span>
+  <span style="color:var(--accent,#3b82f6)">虛線箭頭＝建議你做</span>
+  <span style="color:var(--destructive,#ef4444)">點線箭頭＝不知道有沒有這條路</span>
+  <span>現況未標來源＝依你描述；推測、未知另標：<span class="tag t-doc">已核對</span><span class="tag t-guess">推測</span><span class="tag t-unk">未知</span></span>
+</div>
+
+<section class="panel">
+  <h2>誰把什麼帶到【拍板者】面前</h2>
+  <p class="lens">《Power》資訊與能見度</p>
+  <div class="hop"><span class="node me">你</span><span class="edge">【日期／動詞＋對象】</span><span class="node">【人】</span></div>
+  <div class="hop"><span class="node">【人】</span><span class="edge">【已發生的傳遞，帶原話或數字】</span><span class="node">【拍板者】</span></div>
+  <div class="hop"><span class="node me">你</span><span class="edge unk">【不知道有沒有的路，寫成問句？】</span><span class="node">【拍板者】</span></div>
+  <div class="hop"><span class="node me">你</span><span class="edge plan">【建議你做的第一步】</span><span class="node">【人】</span></div>
+</section>
+
+<section class="panel">
+  <h2>這項決定誰說了算：【寫出是哪一項決定】</h2>
+  <p class="lens">《獨裁者手冊》決策圈：越內圈越接近拍板</p>
+  <div class="ring"><div class="rk">誰的話有份量（影響者）</div><div class="who">【人＋為什麼意見會被聽；你判斷的要加推測】</div>
+    <div class="ring"><div class="rk">少了誰推不動（必要支持／執行）</div><div class="who">【人（已知身分）】：【放這圈的依據】<span class="tag t-guess">推測</span></div>
+      <div class="ring r1"><div class="rk">誰能批准或擋下（批准／否決）</div><div class="who">【人；不知道就寫「還不知道 → 怎麼查」】<span class="tag t-unk">未知</span></div></div>
+    </div>
+  </div>
+  <p class="who" style="margin:8px 0 0;font-size:13px">待查：【沒依據的圈合成這一行，保留角色名稱，例如「少了誰推不動（必要支持）：未知；名義上能參與的人：未知」；沒有就刪掉】</p>
+</section>
+
+<section class="panel">
+  <h2>各方在意什麼、談不成時你能做的</h2>
+  <p class="lens">《Getting to Yes》利益與退路</p>
+  <div class="cols">
+    <div><h3>各方在意什麼</h3><ul>
+      <li><b>【人】</b>：【顧慮或利益，寫在承擔它的人名下】<span class="tag t-guess">推測</span></li>
+      <li><b>你</b>：【使用者說出的目標；你替他讀出的要加推測】</li>
+    </ul></div>
+    <div><h3>談不成時你能做的</h3><ul>
+      <li><b>自己就能做</b>：【不需任何人點頭的最佳選擇；沒有就寫「目前沒有」】</li>
+      <li><b>還要別人點頭</b>：【需同一批人核准的備選】</li>
+      <li><b>還沒到手</b>：【使用者提過、還沒拿到的機會；沒提就寫「你沒提」，不寫成沒有】</li>
+    </ul></div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>
