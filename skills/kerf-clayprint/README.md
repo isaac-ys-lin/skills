@@ -4,6 +4,25 @@ Clayprint 把文字稿整理成提出判斷、附上來源的簡報或 HTML 報�
 
 介紹影片：[從需要，到自己的工具](https://youtu.be/dIQ2amlA6HY)（YouTube，8 分 39 秒）。講 Clayprint 怎麼從一次次不滿意整理出來，也講怎麼檢查 AI 做出來的成品；下方表格的「片中說法」就是影片裡的用詞。
 
+## 範例
+
+以下都由 `examples/` 裡的虛構範例直接產生，沒有手工修圖。每頁標題就是那一頁要支持的判斷，頁尾附資料來源、單位與期間。
+
+| | |
+| --- | --- |
+| ![兩期斜線圖：五個行政區騎乘量都成長](docs/images/deck-slope.png) | ![方案比較表：建議方案以色塊標出](docs/images/deck-compare.png) |
+| 斜線圖加重點數字（[營運檢討](examples/story.json) 第 5 頁） | 方案比較，建議選項整欄標色（第 7 頁） |
+| ![四階段推行時程](docs/images/deck-timeline.png) | ![因果拆解：欄位重填加口頭交接等於登錄延遲](docs/images/explain-cause.png) |
+| 推行時程（第 8 頁） | 沒有數據時用因果拆解（[流程說明](examples/story-explain.json) 第 6 頁） |
+| ![Mekko 圖：各區總量與管道組成](docs/images/chart-mekko.png) | ![柏拉圖：客訴集中在前三類](docs/images/chart-pareto.png) |
+| 規模與組成一張圖看（[圖表範例](examples/story-charts.json) 第 7 頁） | 柏拉圖標出 80% 門檻（第 8 頁） |
+
+同一份流程說明也能做成 HTML 報告（[examples/report.html](examples/report.html)）：
+
+<img src="docs/images/report.png" alt="HTML 報告：標題、目錄、摘要數字與長條圖" width="480">
+
+要自己重現，安裝後執行 `node scripts/pptx.js examples/story.json out/deck.pptx`，再用 `node scripts/preview.js out/deck.pptx out/preview` 看整頁預覽。
+
 ## 怎麼一起工作
 
 交給 AI 時，連同文字稿說明背景：給誰看、要支持什麼判斷或決定。同一份稿，目的不同，取捨也不同。
