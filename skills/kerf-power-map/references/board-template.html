@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!--
-  權力地圖預設版型（見 board.md 第 1 節）。複製整份，只改 <body> 內的文字與列數；CSS 通常不必動，驗收發現溢出時再調。
+  權力地圖預設版型（見 board.md 第 1 節）。複製整份，只改 body 裡的文字與列數；CSS 通常不必動，驗收發現溢出時再調。
   - 沿用環境主題變數，不覆寫 :root 配色、不設整頁背景。
   - 每格一句短語（約 20 字內）；長說明留在正文，不塞進圖。
   - 箭頭三種：.edge 已發生、.edge.plan 建議你做、.edge.unk 不知道有沒有這條路（標籤寫成問句）。
   - 使用者自己說的不貼標籤；只標 已核對／推測／未知，一律寫字。圖例只列圖中真的用到的線型與標籤。
   - 決策圈由外到內：名義上能參與的人（形式參與）→ 誰的話有份量（影響者）→ 少了誰推不動（必要支持）→ 誰能批准或擋下（批准／否決）；只畫第一步要處理的那一項決定，另一項決定在框外寫一行。只畫有依據的圈，沒依據的併成「待查」一行；批准或擋下那圈一定畫。推測標在放圈依據後面，不標在姓名或職稱後面。
-  - 交付版不放任何 <script>；量溢出的程式只在預覽時用。
+  - 交付版不放任何 script 標籤；量溢出的程式只在預覽時用。
 -->
 <style>
 .pm{font-family:var(--font-sans,system-ui,sans-serif);color:var(--foreground,#e5e5e5);line-height:1.45;display:flex;flex-direction:column;gap:14px;padding:4px 2px 8px}
