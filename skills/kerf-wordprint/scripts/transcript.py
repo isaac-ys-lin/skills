@@ -6,6 +6,7 @@ Use --help for the CLI. Input and output JSON preserve original model text.
 """
 import argparse
 import hashlib
+import html
 import json
 import math
 import re
@@ -14,6 +15,8 @@ import subprocess
 import sys
 import tempfile
 import unicodedata
+import urllib.parse
+import wave
 from pathlib import Path
 
 EPS = 0.02  # Accommodate rounding to centiseconds, never invent missing audio.
@@ -59,7 +62,8 @@ def interval(item, where, limit):
     return start, end
 
 
-def validate(path):
+def validate(path, require_speakers=True):
+    """require_speakers=False checks an alignment-only (partial) run: everything except diarization_complete."""
     path = Path(path).resolve()
     run = json.loads(path.read_text(encoding='utf-8-sig'), object_pairs_hook=object_pairs)
     require(isinstance(run, dict) and type(run.get('schema_version')) is int and run['schema_version'] == 1,
@@ -67,10 +71,12 @@ def validate(path):
     model = run.get('model')
     require(isinstance(model, dict), 'model: object required')
     string(model.get('id'), 'model.id')
-    require(model.get('size') in ('0.6B', '1.7B'), 'model.size must be 0.6B or 1.7B')
     named_sizes = {size for size in ('0.6B', '1.7B') if size.casefold() in model['id'].casefold()}
+    # Non-Qwen engines (e.g. gemini-3.5-transcribe) have no size; a Qwen size in the id still requires it.
+    require(model.get('size') in ('0.6B', '1.7B') or (model.get('size') is None and not named_sizes),
+            'model.size must be 0.6B or 1.7B (null only for an id naming no Qwen size)')
     require(not named_sizes or named_sizes == {model['size']}, 'model.id and model.size disagree')
-    require(run.get('diarization_complete') is True, 'diarization_complete must be true; partial runs cannot render as complete')
+    require(not require_speakers or run.get('diarization_complete') is True, 'diarization_complete must be true; partial runs cannot render as complete')
     sources = run.get('sources')
     require(isinstance(sources, list) and sources, 'sources: nonempty array required')
     duration = 0.0
@@ -97,6 +103,22 @@ def validate(path):
             require(abs(length - count / rate) <= EPS, f'{where}: duration differs from PCM sample count')
         duration += length
         source['path'] = str(source_path)  # Saved manifest stays resolvable in its new directory.
+    if 'pcm' in run:
+        pcm = Path(string(run['pcm'], 'pcm'))
+        pcm = (path.parent / pcm).resolve() if not pcm.is_absolute() else pcm.resolve()
+        require(pcm.is_file(), f'pcm: canonical PCM not found: {pcm}')
+        try:
+            with wave.open(str(pcm), 'rb') as audio:
+                shape, frames = (audio.getnchannels(), audio.getsampwidth(), audio.getframerate()), audio.getnframes()
+                present = 0  # The header's frame count is a claim; count the bytes actually on disk.
+                while block := audio.readframes(1 << 20):
+                    present += len(block)
+        except (wave.Error, EOFError) as error:
+            raise Invalid(f'pcm: unreadable WAV: {error}')
+        require(shape == (1, 2, 16000), 'pcm: canonical PCM must be mono 16-bit 16 kHz WAV')
+        require(present == frames * 2, f'pcm: header declares {frames} frames but data holds {present // 2}')
+        require(abs(frames / 16000 - duration) <= EPS, 'pcm: sample count differs from source durations')
+        run['pcm'] = str(pcm)
     speakers = run.get('speakers')
     require(isinstance(speakers, dict), 'speakers: object required (anonymous IDs map to {})')
     for key, speaker in speakers.items():
@@ -153,7 +175,9 @@ def validate(path):
         cursor = end
     require(abs(cursor - duration) <= EPS, 'chunks do not cover the recording end')
     report = {'ok': True, 'duration': duration, 'sources': len(sources), 'chunks': len(chunks), 'words': word_count,
-              'source_sha256_verified': True, 'text_match': 'ignore Unicode punctuation, whitespace and case only',
+              'source_sha256_verified': True, 'pcm_verified': 'pcm' in run,
+              'diarization_complete': run.get('diarization_complete') is True,
+              'text_match': 'ignore Unicode punctuation, whitespace and case only',
               'limits': 'Structural validation and recorded completion flags cannot prove ASR accuracy or unheard speech.'}
     return run, report
 
@@ -217,8 +241,12 @@ def rows(run):
             yield current
 
 
+def millis(seconds):
+    return round(seconds * 1000)
+
+
 def stamp(seconds):
-    ms = round(seconds * 1000)
+    ms = millis(seconds)
     hours, ms = divmod(ms, 3600000)
     minutes, ms = divmod(ms, 60000)
     seconds, ms = divmod(ms, 1000)
@@ -240,7 +268,92 @@ def markdown(text):
     return re.sub(r'([\\`*_{}\[\]<>()#+.!|~-])', r'\\\1', text)
 
 
-def render(run, report, output, original_script=False, opencc='opencc'):
+def clayprint_dir():
+    """Sibling install first, then the current project's Claude/Codex skill folders."""
+    for root in (Path(__file__).resolve().parents[2], Path.cwd() / '.claude/skills', Path.cwd() / '.agents/skills'):
+        if (root / 'kerf-clayprint/scripts/theme-css.js').is_file():
+            return root / 'kerf-clayprint'
+    return None
+
+
+def clayprint_css():
+    """Active Clayprint design-layer CSS, or none when Clayprint/node is absent (page-local rules carry var() fallbacks)."""
+    found, node = clayprint_dir(), shutil.which('node')
+    if found and node:
+        result = subprocess.run([node, str(found / 'scripts/theme-css.js')], capture_output=True, text=True,
+                                encoding='utf-8', check=False)
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout
+    return ''
+
+
+def srt_stamp(seconds):
+    return stamp(seconds).replace('.', ',')
+
+
+def page(title, rows_html, markdown_text, meta, playback):
+    """Single-file reading page: click a row to seek; copy Markdown; mail with subject."""
+    payload = json.dumps(markdown_text, ensure_ascii=False).replace('<', '\\u003c')
+    subject = urllib.parse.quote(f'逐字稿：{title}')
+    audio = '<audio controls preload="metadata" src="playback.wav"></audio>' if playback else ''
+    hint = '點任一段可跳到該處播放（需與 playback.wav 同資料夾）。' if playback else '此份沒有音訊，無法跳播。'
+    meta_html = ''.join(f'<div><dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd></div>' for k, v in meta)
+    return f"""<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>逐字稿：{html.escape(title)}</title>
+<style id="clayprint-theme">
+{clayprint_css()}
+</style>
+<style>
+.player {{ position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+  padding: 12px 0; background: var(--cp-paper, #fff); border-bottom: 1px solid var(--cp-line, #ddd); }}
+.player audio {{ flex: 1 1 320px; }}
+.player button, .player a {{ font: inherit; font-size: var(--cp-small); padding: 6px 12px; border: 1px solid var(--cp-accent, #C2553A);
+  border-radius: 4px; background: none; color: var(--cp-accent, #C2553A); cursor: pointer; text-decoration: none; }}
+.seg {{ max-width: none; margin: 0; padding: 10px 8px; border-bottom: 1px solid var(--cp-line, #ddd); cursor: pointer; }}
+.seg:hover, .seg:focus, .seg.now {{ background: var(--cp-tint, #eee); outline: none; }}
+.who {{ display: block; color: var(--cp-muted); font-size: var(--cp-small); }}
+</style>
+</head>
+<body>
+<main>
+<header class="report-cover">
+<p class="eyebrow">Wordprint 逐字稿</p>
+<h1>{html.escape(title)}</h1>
+<p>模型推定說話者；可能身分與不確定／重疊發言均保留標記。{hint}</p>
+<dl class="cover-meta">{meta_html}</dl>
+</header>
+<div class="player">{audio}<button type="button" id="copy">複製 Markdown</button><a href="mailto:?subject={subject}">寄信</a></div>
+<section aria-label="逐字稿">
+{rows_html}
+</section>
+</main>
+<script type="application/json" id="markdown">{payload}</script>
+<script>
+const audio = document.querySelector('audio');
+const segs = [...document.querySelectorAll('[data-start]')];
+const seek = (el) => {{ if (audio) {{ audio.currentTime = Number(el.dataset.start); audio.play(); }} }};
+segs.forEach((el) => {{
+  el.addEventListener('click', () => seek(el));
+  el.addEventListener('keydown', (e) => {{ if (e.key === 'Enter' || e.key === ' ') {{ e.preventDefault(); seek(el); }} }});
+}});
+if (audio) audio.addEventListener('timeupdate', () => {{
+  segs.forEach((el) => el.classList.toggle('now', audio.currentTime >= Number(el.dataset.start) && audio.currentTime < Number(el.dataset.end)));
+}});
+document.getElementById('copy').addEventListener('click', async (e) => {{
+  try {{ await navigator.clipboard.writeText(JSON.parse(document.getElementById('markdown').textContent)); e.target.textContent = '已複製'; }}
+  catch {{ e.target.textContent = '瀏覽器不允許複製'; }}
+}});
+</script>
+</body>
+</html>
+"""
+
+
+def render(run, report, output, original_script=False, opencc='opencc', title=None):
     output = Path(output).resolve()
     require(not output.exists(), f'output already exists; choose a new directory: {output}')
     require(output.parent.is_dir(), 'output parent directory does not exist')
@@ -248,31 +361,60 @@ def render(run, report, output, original_script=False, opencc='opencc'):
     texts = [row['text'] for row in rendered]
     if not original_script:
         binary = shutil.which(opencc)
-        require(binary is not None, 'OpenCC not found; install it or explicitly pass --original-script')
+        try:  # Windows has no OpenCC CLI package; the torch worker's environment ships the official Python binding.
+            module = None if binary else __import__('opencc').OpenCC('s2twp.json')
+        except ImportError:
+            module = None
+        require(binary or module, 'OpenCC not found; install it or explicitly pass --original-script')
         # Convert only transcript text; identity labels and source evidence remain untouched.
         # ponytail: one OpenCC process per row; batch conversion if measured startup cost dominates.
         for i, text in enumerate(texts):
+            if module:
+                texts[i] = module.convert(text)
+                continue
             result = subprocess.run([binary, '-c', 's2twp.json'], input=text, text=True, encoding='utf-8',
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
             require(result.returncode == 0 and (not text or bool(result.stdout)), f'OpenCC failed: {result.stderr.strip()}')
             texts[i] = result.stdout
     raw = '\n'.join(chunk['text'] for chunk in run['chunks']) + '\n'
     transcript, md = [], ['# 含時間與說話者逐字稿', '', '模型推定說話者；可能身分與不確定／重疊發言均保留標記。', '']
-    for row, text in zip(rendered, texts):
-        header = f'[{stamp(row["start"])}–{stamp(row["end"])}] {label(row, run["speakers"])}'
+    segments, cues = [], []
+    # SRT carries whole milliseconds, so check the cue times it would actually write; never nudge a time.
+    srt_reason = 'no rows' if not rendered else next(
+        (f'row {i}: end does not exceed start after millisecond rounding' for i, r in enumerate(rendered, 1)
+         if not (math.isfinite(r['start']) and math.isfinite(r['end']) and millis(r['end']) > millis(r['start']))), None)
+    srt_ok = srt_reason is None
+    for i, (row, text) in enumerate(zip(rendered, texts), 1):
+        who = label(row, run['speakers'])
+        header = f'[{stamp(row["start"])}–{stamp(row["end"])}] {who}'
         transcript.append(f'{header}\n{text}\n')
         md.extend([f'**{markdown(header)}**', '', markdown(text), ''])
+        segments.append(f'<p class="seg" tabindex="0" data-start="{row["start"]:.3f}" data-end="{row["end"]:.3f}">'
+                        f'<span class="who">{html.escape(header)}</span>{html.escape(text.strip())}</p>')
+        cues.append(f'{i}\n{srt_stamp(row["start"])} --> {srt_stamp(row["end"])}\n[{who}] {text.strip()}\n')
+    title = title or '＋'.join(Path(s['path']).stem for s in run['sources'])
+    playback = run.get('pcm')
+    saved = dict(run, pcm=str(output / 'playback.wav')) if playback else run
+    meta = [('模型', run['model']['id']), ('長度', stamp(report['duration'])), ('來源', f'{len(run["sources"])} 個檔案')]
+    files = {'raw.txt': raw, 'raw.md': '# 模型原始逐字稿\n\n' + markdown(raw),
+             'transcript.txt': '\n'.join(transcript), 'transcript.md': '\n'.join(md),
+             'transcript.html': page(title, '\n'.join(segments), '\n'.join(md), meta, playback),
+             'run.json': json.dumps(saved, ensure_ascii=False, indent=2) + '\n'}
+    if srt_ok:
+        files['transcript.srt'] = '\n'.join(cues)
     final_report = dict(report, reading_script='original' if original_script else 'OpenCC s2twp.json',
+                        srt_written=srt_ok, **({} if srt_ok else {'srt_reason': srt_reason}),
+                        playback_written=bool(playback),
                         unknown_rows=sum(r['kind'] == 'unknown' for r in rendered),
                         uncertain_rows=sum(r['kind'] == 'uncertain' for r in rendered),
                         overlap_rows=sum(r['kind'] == 'overlap' for r in rendered))
     temp = Path(tempfile.mkdtemp(prefix='.transcript-', dir=output.parent))
     try:
-        for name, content in {'raw.txt': raw, 'raw.md': '# 模型原始逐字稿\n\n' + markdown(raw),
-                              'transcript.txt': '\n'.join(transcript), 'transcript.md': '\n'.join(md),
-                              'run.json': json.dumps(run, ensure_ascii=False, indent=2) + '\n',
-                              'validation.json': json.dumps(final_report, ensure_ascii=False, indent=2) + '\n'}.items():
+        files['validation.json'] = json.dumps(final_report, ensure_ascii=False, indent=2) + '\n'
+        for name, content in files.items():
             (temp / name).write_text(content, encoding='utf-8')
+        if playback:
+            shutil.copyfile(playback, temp / 'playback.wav')
         # mkdir claims the destination without overwriting a concurrently created directory.
         output.mkdir()
         try:
@@ -296,11 +438,12 @@ def main(argv=None):
             command.add_argument('--output', type=Path, required=True, help='new output directory (parent must exist)')
             command.add_argument('--original-script', action='store_true', help='explicitly skip Traditional Chinese conversion')
             command.add_argument('--opencc', default='opencc', help='OpenCC command/path; defaults to opencc on PATH, s2twp.json')
+            command.add_argument('--title', help='reading-page title; defaults to source file names')
     args = parser.parse_args(argv)
     try:
         run, report = validate(args.run)
         if args.command == 'render':
-            report = render(run, report, args.output, args.original_script, args.opencc)
+            report = render(run, report, args.output, args.original_script, args.opencc, args.title)
         print(json.dumps(report))  # ASCII-safe CLI JSON also works with legacy Windows stdout encodings.
         return 0
     except (Invalid, OSError, ValueError) as error:
